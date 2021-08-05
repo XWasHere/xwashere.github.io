@@ -1,0 +1,8 @@
+*.zip
+node_modules
+out
+server
+wasm
+DOMAPI
+test
+.vscode
