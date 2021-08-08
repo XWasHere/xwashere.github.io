@@ -37,7 +37,7 @@ class i {
     }
 }
 
-class name {
+class Name {
     constructor(value) {
         this.value = value;
     }
@@ -132,23 +132,24 @@ class Module {
         console.group("module")
         let bstack = [];
         let i = 0;
-        
+        let linking;
+
         function RF_START(t) {
-            console.groupCollapsed(t);
+            //console.groupCollapsed(t);
             bstack.push(i);
         }
 
         function RF_END(t) {
             let b = bstack.pop();
-            console.debug("[accept " + t + " (" + atos(data.subarray(b, i)) + ")]")
-            console.groupEnd();
+            //console.debug("[accept " + t + " (" + atos(data.subarray(b, i)) + ")]")
+            //console.groupEnd();
         }
 
         function RF_FAIL(t) {
             let oldi = i;
             i = bstack.pop();
-            console.debug("[fail " + t + " (" + atos(data.subarray(i, oldi)) + ")]");
-            console.groupEnd();
+            //console.debug("[fail " + t + " (" + atos(data.subarray(i, oldi)) + ")]");
+            //console.groupEnd();
         }
 
         function read_vec(type) {
@@ -271,20 +272,30 @@ class Module {
 
         function read_customsec() {
             RF_START("customsec");
-            if (!read_section(0, read_custom)) {
+            let d;
+            if (!(d=read_section(0, read_custom))) {
                 RF_FAIL("customsec");
                 return;
             }
             RF_END("customsec");
-
             return true;
         }
 
         function read_custom(len) {
             RF_START("custom");
-            i += len;
-            RF_END("custom");
-            return true;
+            let j = len;
+            let name = atos(read_name().value);
+            if (name == "linking") {
+                console.debug("found special non-standard section: LINKING (result: evaluating)")
+                linking = read_linkingsec();
+                RF_END("custom");
+                return true;
+            }
+            else {
+                i = j;
+                RF_END("custom");
+                return true;
+            }
         }
 
         function read_typesec() {
@@ -379,7 +390,7 @@ class Module {
         }
 
         function read_instr() {
-
+            
         }
 
         function read_expr() {
@@ -387,16 +398,19 @@ class Module {
             let o = i;
             let oi = i;
             let done = false;
-            while (!done) {
+            let depth = 1;
+            while (depth > 0) {
                 let ins = data[o];
-                if (ins == 0x0B) {
-                    done = true;
+                if (ins == 0xFC) {
+                    o++;
                 }
-                else if ([0x02, 0x03, 0x04].includes(ins)) {
-                    i = o;
-                    read_expr();
-                    o = i
-                    i = oi
+                else {
+                    if (ins == 0x0B) {
+                        depth--;
+                    }
+                    else if ([0x02, 0x03, 0x04].includes(ins)) {
+                        depth++;
+                    }
                 }
                 o++;
             }
@@ -424,6 +438,112 @@ class Module {
             return g;
         }
 
+        function read_name() {
+            RF_START("name")
+            let n = read_vec(read_byte);
+            RF_END("name")
+            let nm= new Name()
+            nm.value = n;
+            return nm;
+        }
+
+        function read_exportdesc() {
+            RF_START("exportdesc")
+            let d = new ExportDesc();
+            read_byte();
+            d.index = read_uint(32);
+            RF_END("exportdesc")
+            return d;
+        }
+
+        function read_export() {
+            RF_START("export")
+            let nm = read_name();
+            let d  = read_exportdesc();
+            let e  = new Export();
+            e.name = nm;
+            e.desc = d;
+            RF_END("export")
+            return e
+        }
+
+        function read_exportsec() {
+            RF_START("exportsec")
+            let e = read_section(7,read_vec.bind(this,read_export))
+            RF_END("exportsec")
+            return e;
+        }
+
+        function read_locals() {
+            RF_START("locals")
+            let n = read_uint(32);
+            let t = read_valtype();
+            RF_END("locals")
+            let r = [];
+            while (n.value > 0) {
+                r.push(t);
+            }
+            return r
+        }
+
+        function read_func() {
+            RF_START("func")
+            let t = read_vec(read_locals);
+            let e = read_expr();
+            RF_END("func")
+            let l = []
+            t.forEach((a) => {
+                l.push(...a)
+            });
+            return {l, e}
+        }
+
+        function read_code() {
+            RF_START("code")
+            let s = read_uint(32);
+            let code = read_func();
+            RF_END("code")
+            return code;
+        }
+
+        function read_codesec() {
+            RF_START("codesec")
+            let c = read_section(10, read_vec.bind(this, read_code));
+            RF_END("codesec")
+            return c;
+        }
+
+        function read_linkingsec() {
+            RF_START("linking")
+            let l = {}
+            let version = read_byte();
+            let what    = read_byte();
+            if (what == 8) {
+                RF_START("symbol table")
+                let symbols = {globals:{},funcs:{}}
+                let size = read_uint(32);
+                let count = read_uint(32);
+                while (count.value>0) {
+                    count.value--;
+                    let symbol = {}
+                    symbol.type = read_byte();
+                    symbol.flags= read_uint(32);
+                    symbol.index= read_uint(32);
+                    symbol.name = read_name();
+                    if (symbol.type == 0x00) {
+                        symbols.funcs[atos(symbol.name.value)] = symbol;
+                    }
+                    else if (symbol.type == 0x02) {
+                        symbols.globals[atos(symbol.name.value)] = symbol
+                    }
+                }
+                l.symbols = symbols
+                RF_END("symbol table")
+            }
+            RF_END("linking")
+            return l
+        }
+
         if (![...(data.subarray(0, 8).values())].join()==[0x00,0x61,0x73,0x6D,0x01,0x00,0x00,0x00].join()) {
             return
         }
@@ -441,10 +561,33 @@ class Module {
         let mem = read_memsec();
         while (read_customsec()) {};
         let global = read_globalsec();
+        while (read_customsec()) {};
+        let exports= read_exportsec();
+        while (read_customsec()) {};
+        let start;
+        while (read_customsec()) {};
+        let elems;
+        while (read_customsec()) {};
+        let m;
+        while (read_customsec()) {};
+        let code   = read_codesec();
+        while (read_customsec()) {};
+        let mdata;
+        while (read_customsec()) {};
 
         this.types = functype;
         this.mems  = mem;
         this.globals=global;
+        this.exports=exports;
+        this.funcs  =new Vector();
+        this.linking=linking;
+        code.forEach((c, i) => {
+            let f = new Func();
+            f.type = typeidx[i].value
+            f.locals = c.l;
+            f.body = c.e;
+            this.funcs.push(f)
+        })
         console.groupEnd();
     }
 }
@@ -503,7 +646,7 @@ class labelidx {
     }
 }
 
-class func {
+class Func {
     constructor(type, locals, body) {
         this.type = type;
         this.locals = locals;
@@ -550,7 +693,7 @@ class elemmode {
     }
 }
 
-class data {
+class Data {
     constructor(init, mode) {
         this.init = init;
         this.mode = mode;
