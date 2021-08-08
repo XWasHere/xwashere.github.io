@@ -1,3 +1,5 @@
+// Library for webassembly manipulation, Copyright XWasHere 2021
+
 function atos(a) {
     return Array.from(new Uint8Array(a)).map((x)=>String.fromCharCode(x)).join('');
 }
@@ -450,7 +452,8 @@ class Module {
         function read_exportdesc() {
             RF_START("exportdesc")
             let d = new ExportDesc();
-            read_byte();
+            let type= read_byte();
+            d.type  = type
             d.index = read_uint(32);
             RF_END("exportdesc")
             return d;
@@ -589,6 +592,239 @@ class Module {
             this.funcs.push(f)
         })
         console.groupEnd();
+    }
+
+    // im so sorry...
+    encode() {
+        function encode_uint(N, value) {
+            let o = []
+            
+            // let a = value.toString(2)
+            //     .padStart(Math.ceil(value.toString(2).length/7)*7,"0")
+            //     .split(/(.{7})/)
+            //     .join(" ")
+            //     .trimStart()
+            //     .replaceAll("  ","1")
+            //     .replace(/^/, "0")
+            //     .split(/(.{8})/)
+            //     .join(" ")
+            //     .replaceAll("  ", " ")
+            //     .trimStart()
+            //     .trimEnd()
+            //     .split(" ")
+            //     .map((v) => Number.parseInt(v, 2))
+            //     .reverse();
+            // return a;
+
+            do {
+                let b = value & 0x7f
+                value >>=7;
+                if (value != 0) o.push(b | 0x80)
+                else o.push(b)
+            } while (value != 0)
+            return o
+        }
+        
+        let data = [0x00,0x61,0x73,0x6D,0x01,0x00,0x00,0x00];
+
+        // types
+        data.push(0x01);
+        
+        let temp = data.length;        
+        let count = 0;
+        
+        this.types.forEach((t) => {
+            data.push(0x60);
+            count++;
+            (()=>{
+                let temp = data.length;
+                let count = 0;
+                
+                t.params.forEach((p)=>{
+                    switch (p) {
+                        case valtype.i32:
+                            data.push(0x7F);
+                            break;
+                        case valtype.i64:
+                            data.push(0x7E);
+                            break;
+                        case valtype.f32:
+                            data.push(0x7D);
+                            break;
+                        case valtype.f64:
+                            data.push(0x7C);
+                            break;
+                        case valtype.funcref:
+                            data.push(0x70);
+                            break;
+                        case valtype.externref:
+                            data.push(0x6F);
+                            break;
+                    }
+                    count++
+                })
+
+                data.splice(temp,0,...encode_uint(32,count))       
+            })();
+            (()=>{
+                let temp = data.length;
+                let count = 0;
+                
+                t.result.forEach((r)=>{
+                    switch (r) {
+                        case valtype.i32:
+                            data.push(0x7F);
+                            break;
+                        case valtype.i64:
+                            data.push(0x7E);
+                            break;
+                        case valtype.f32:
+                            data.push(0x7D);
+                            break;
+                        case valtype.f64:
+                            data.push(0x7C);
+                            break;
+                        case valtype.funcref:
+                            data.push(0x70);
+                            break;
+                        case valtype.externref:
+                            data.push(0x6F);
+                            break;
+                    }
+                    count++
+                })
+
+                data.splice(temp,0,...encode_uint(32,count))       
+            })()
+        })
+
+        data.splice(temp,0,...encode_uint(32,count))
+        data.splice(temp,0,...encode_uint(32,data.length-temp))
+        
+        // functions
+        data.push(0x03);
+        
+        temp = data.length;
+        count= 0;
+
+        let types = this.funcs.map((v) => {return v.type})
+        
+        types.forEach((t) => {
+            data.push(...encode_uint(32,t))
+            count++;
+        })
+
+        data.splice(temp,0,...encode_uint(32,count))
+        data.splice(temp,0,...encode_uint(32,data.length-temp))
+        
+        // memories
+        data.push(0x05);
+
+        temp = data.length;
+        count= 0;
+
+        this.mems.forEach((m) => {
+            let min = m.type.limits.min.value;
+            let max = m.type.limits.max.value;
+            if (max) {data.push(0x01)} else {data.push(0x00)}
+            data.push(...encode_uint(min))
+            if (max) {data.push(...encode_uint(min))};
+            count++
+        })
+
+        data.splice(temp,0,...encode_uint(32,count))
+        data.splice(temp,0,...encode_uint(32,data.length-temp))
+        
+        // globals
+        data.push(0x06);
+
+        temp = data.length;
+        count= 0;
+
+        this.globals.forEach((m) => {
+            switch (m.type.type) {
+                case valtype.i32:
+                    data.push(0x7F);
+                    break;
+                case valtype.i64:
+                    data.push(0x7E);
+                    break;
+                case valtype.f32:
+                    data.push(0x7D);
+                    break;
+                case valtype.f64:
+                    data.push(0x7C);
+                    break;
+                case valtype.funcref:
+                    data.push(0x70);
+                    break;
+                case valtype.externref:
+                    data.push(0x6F);
+                    break;
+            }
+            switch (m.type.mutable) {
+                case mut.const:
+                    data.push(0x00);
+                    break;
+                case mut.var:
+                    data.push(0x01);
+                    break;
+            }
+            data.push(...m.init)
+            count++
+        })
+
+        data.splice(temp,0,...encode_uint(32,count))
+        data.splice(temp,0,...encode_uint(32,data.length-temp))
+
+        // exports
+        data.push(0x07);
+
+        temp = data.length;
+        count= 0;
+
+        this.exports.forEach((e) => {
+            count++;
+            (()=>{
+                let temp = data.length;
+                data.push(...e.name.value)
+                data.splice(temp,0,...encode_uint(32,data.length-temp))
+            })()
+            data.push(e.desc.type)
+            data.push(...encode_uint(32,e.desc.index.value))
+        })
+
+        data.splice(temp,0,...encode_uint(32,count))
+        data.splice(temp,0,...encode_uint(32,data.length-temp))
+
+        // code
+        data.push(0xA);
+
+        temp = data.length;
+        count= 0;
+
+        this.funcs.forEach((c) => {
+            count++
+            (()=>{
+                let temp = data.length;
+                (()=>{
+                    let temp = data.length;
+                    let count= 0;
+                    c.locals.forEach(()=>{})
+                    data.splice(temp,0,...encode_uint(32,count))
+                })()
+                c.body.forEach((i) => {
+                    data.push(i);
+                })
+                data.splice(temp,0,...encode_uint(32,data.length-temp))
+            })()
+
+        })
+
+        data.splice(temp,0,...encode_uint(32,count))
+        data.splice(temp,0,...encode_uint(32,data.length-temp))
+
+        return Uint8Array.from(data);
     }
 }
 

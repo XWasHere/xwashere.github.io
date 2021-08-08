@@ -2,7 +2,6 @@
     (global $dp (mut i32) (i32.const 0    )) ;; data pointer
     (global $ml (mut i32) (i32.const 30000))
 
-    (func)
     (func $right
 
     )
@@ -27,9 +26,17 @@
     
     )
 
-    (func $main (export "main")
+    (func $main
 
     )
 
+    (func $init_mem
+        (memory.grow (i32.trunc_f32_u (f32.ceil (f32.div (f32.convert_i32_u (global.get $ml)) (f32.const 65536)))))
+        (return)
+    )
+
     (memory $mem 0)
+
+    (export "main" (func   $main))
+    (export "mem"  (memory $mem))
 )

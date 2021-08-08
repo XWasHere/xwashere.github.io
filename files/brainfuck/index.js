@@ -6,7 +6,8 @@ async function init() {
     let a = await mod.arrayBuffer();
     const tb = new Uint8Array(a);
 
-    console.debug(window.wasm.decompile(tb));
+    template = window.wasm.decompile(tb);
+    WebAssembly.instantiate(template.encode());
     //gen_module_parse_tree(tb);
 };
 
@@ -18,23 +19,34 @@ async function compile(src) {
         output = newOutput;
     }
     let source = src.split('');
-    let output = []; //new Uint8Array();
+    let output = template; //new Uint8Array();
     let srcptr = 0;
     let cmpptr = 0;
 
     // add magic and version;
     //growBuffer(8);
     //output.set([0, 97, 115, 109, ...WEBASSEMBLY_VERSION], 0);
-    output = [
-        0x00, 0x61, 0x73, 0x6D, // WASM MAGIC
-        0x01, 0x00, 0x00, 0x00, // WASM VERSION
-    ]
 
+    // get refs to functions we'll call in the template module
+    let f = [];
+    const INIT_MEM = template.linking.symbols.funcs.init_mem.index.value;
+    const PLUS     = template.linking.symbols.funcs.plus.index.value;
+    const MAIN     = template.linking.symbols.funcs.main.index.value;
+
+    f.push(0x10, INIT_MEM); // call $init_mem
+    
     for (srcptr = 0; srcptr < source.length; srcptr++) {
         console.debug(source[srcptr]);
     }
 
-    let mod = await WebAssembly.instantiate(Uint8Array.from(output));
+    f.push(0x0B); // end
+
+    output.funcs[MAIN].body = f;
+
+    console.log(output.encode())
+    let mod = await WebAssembly.instantiate(output.encode());
+    console.log(mod)
+    mod.instance.exports.main();
     return mod;
 }
 
@@ -44,4 +56,4 @@ async function load() {
     console.log(o)
 }
 
-init().then(()=>{compile("+")});
+init().then(()=>{compile("++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.")});
