@@ -7,7 +7,6 @@ async function init() {
     const tb = new Uint8Array(a);
 
     template = window.wasm.decompile(tb);
-    WebAssembly.instantiate(template.encode());
     //gen_module_parse_tree(tb);
 };
 
@@ -34,17 +33,16 @@ async function compile(src) {
     const MINUS    = template.linking.symbols.funcs.minus.index.value;
     const RIGHT    = template.linking.symbols.funcs.right.index.value;
     const LEFT     = template.linking.symbols.funcs.left.index.value;
-    const MAIN     = template.linking.symbols.funcs.main.index.value;
+    const MAIN     = template.linking.symbols.funcs.main.index.value - 1; // wtf
+    const DOT      = template.linking.symbols.funcs.dot.index.value;
 
-    const BRACKET  = template.funcs[template.linking.symbols.funcs.brackets.index.value].body
+    const BRACKET  = template.funcs[template.linking.symbols.funcs.brackets.index.value - 1].body
     const SEP      = template.linking.symbols.funcs.sep.index.value;
-
     let BRACKET_SPLIT = BRACKET.findIndex((v, i, a) => {
-        if (a.slice(i,i+6).join()==[0x10,0x80,0x80,0x80,0x80,SEP].join()) {
+        if (a.slice(i,i+6).join()==[0x10,0x80+SEP,0x80,0x80,0x80,0].join()) {
             return true
         }
     })
-    
     const LBRACKET = BRACKET.slice(0, BRACKET_SPLIT);
     const RBRACKET = BRACKET.slice(BRACKET_SPLIT,BRACKET.length-1);
 
@@ -70,6 +68,9 @@ async function compile(src) {
             case ']':
                 f.push(...RBRACKET)
                 break;
+            case '.':
+                f.push(0x10, DOT);
+                break;
             default:
                 console.debug("ignoring unknown character " + source[srcptr])
         }
@@ -80,16 +81,26 @@ async function compile(src) {
     output.funcs[MAIN].body = f;
 
     console.log(output.encode())
-    let mod = await WebAssembly.instantiate(output.encode());
+
+    let o = document.getElementById("output")
+    let mod = await WebAssembly.instantiate(output.encode(), {
+        console: {
+            log: (c) => {
+                o.textContent = o.textContent + String.fromCharCode(c);
+            }
+        }
+    });
+    
     console.log(mod)
     mod.instance.exports.main();
-    return mod;
+
+    return;
 }
 
 async function load() {
+    document.getElementById("output").textContent = ""
     let t = document.getElementById("src").value;
-    let o = await compile(t);
-    console.log(o)
+    compile(t);
 }
 
 init().then(()=>{compile("++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.")});

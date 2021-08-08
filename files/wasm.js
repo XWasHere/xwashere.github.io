@@ -166,21 +166,21 @@ class Module {
         let linking;
 
         function RF_START(t) {
-            //console.groupCollapsed(t);
+            console.groupCollapsed(t);
             bstack.push(i);
         }
 
         function RF_END(t) {
             let b = bstack.pop();
-            //console.debug("[accept " + t + " (" + atos(data.subarray(b, i)) + ")]")
-            //console.groupEnd();
+            console.debug("[accept " + t + " (" + atos(data.subarray(b, i)) + ")]")
+            console.groupEnd();
         }
 
         function RF_FAIL(t) {
             let oldi = i;
             i = bstack.pop();
-            //console.debug("[fail " + t + " (" + atos(data.subarray(i, oldi)) + ")]");
-            //console.groupEnd();
+            console.debug("[fail " + t + " (" + atos(data.subarray(i, oldi)) + ")]");
+            console.groupEnd();
         }
 
         function read_vec(type) {
@@ -275,6 +275,10 @@ class Module {
 
         function read_uint(N) {
             RF_START("u"+N);
+            if (N < 0) {
+                RF_FAIL("u"+N)
+                return;
+            }
             let n = read_byte();
             if ((n<(2**7))&&(n<(2**N))) {
                 RF_END("u"+N);
@@ -561,12 +565,15 @@ class Module {
                     symbol.type = read_byte();
                     symbol.flags= read_uint(32);
                     symbol.index= read_uint(32);
-                    symbol.name = read_name();
-                    if (symbol.type == 0x00) {
-                        symbols.funcs[atos(symbol.name.value)] = symbol;
-                    }
-                    else if (symbol.type == 0x02) {
-                        symbols.globals[atos(symbol.name.value)] = symbol
+                    console.log(symbol)
+                    if (symbol.flags.value != 0x10) {
+                        symbol.name = read_name();
+                        if (symbol.type == 0x00) {
+                            symbols.funcs[atos(symbol.name.value)] = symbol;
+                        }
+                        else if (symbol.type == 0x02) {
+                            symbols.globals[atos(symbol.name.value)] = symbol
+                        }
                     }
                 }
                 l.symbols = symbols
@@ -574,6 +581,37 @@ class Module {
             }
             RF_END("linking")
             return l
+        }
+
+        function read_importsec() {
+            RF_START("importsec")
+            let s = read_section(2, read_vec.bind(this, read_import))
+            RF_END("importsec")
+            return s;
+        }
+
+        function read_import() {
+            RF_START("import")
+            let mod  = read_name();
+            let name = read_name();
+            let desc = read_importdesc();
+
+            let im = new Import();
+            im.module = mod;
+            im.name = name;
+            im.desc = desc;
+            RF_END("import")
+            return im;
+        }
+
+        function read_importdesc() {
+            RF_START("importdesc")
+            read_byte();
+            let index = read_typeidx();
+            let id = new ImportDesc();
+            id.func = index;
+            RF_END("importdesc")
+            return id;
         }
 
         if (![...(data.subarray(0, 8).values())].join()==[0x00,0x61,0x73,0x6D,0x01,0x00,0x00,0x00].join()) {
@@ -584,7 +622,7 @@ class Module {
         while (read_customsec()) {};
         let functype = read_typesec();
         while (read_customsec()) {};
-        let imports;
+        let imports = read_importsec();
         while (read_customsec()) {};
         let typeidx = read_funcsec();
         while (read_customsec()) {};
@@ -608,6 +646,7 @@ class Module {
         while (read_customsec()) {};
 
         this.types = functype;
+        this.imports=imports;
         this.mems  = mem;
         this.globals=global;
         this.exports=exports;
@@ -701,6 +740,31 @@ class Module {
         data.splice(temp,0,...encode_uint(32,count))
         data.splice(temp,0,...encode_uint(32,data.length-temp))
         
+        // imports
+        data.push(0x02);
+        
+        temp = data.length;
+        count= 0;
+
+        this.imports.forEach((t) => {
+            (()=>{
+                let temp = data.length;
+                data.push(...t.module.value)
+                data.splice(temp,0,...encode_uint(32,data.length-temp))
+            })();
+            (()=>{
+                let temp = data.length;
+                data.push(...t.name.value)
+                data.splice(temp,0,...encode_uint(32,data.length-temp))
+            })()
+            data.push(0x00)
+            data.push(...encode_uint(32, t.desc.func.value))
+            count++;
+        })
+
+        data.splice(temp,0,...encode_uint(32,count))
+        data.splice(temp,0,...encode_uint(32,data.length-temp))
+
         // functions
         data.push(0x03);
         

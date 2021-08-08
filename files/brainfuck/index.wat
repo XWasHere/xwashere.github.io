@@ -1,8 +1,16 @@
 (module $template
+    (import "console" "log" (func $console.log (param i32)))
+
     (global $dp (mut i32) (i32.const 0    )) ;; data pointer
     (global $ml (mut i32) (i32.const 30000))
 
     (func $sep)
+
+    (func $dot
+        global.get $dp
+        i32.load8_u
+        call $console.log
+    )
 
     (func $brackets
         global.get $dp
