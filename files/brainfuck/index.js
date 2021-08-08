@@ -36,7 +36,13 @@ async function compile(src) {
     f.push(0x10, INIT_MEM); // call $init_mem
     
     for (srcptr = 0; srcptr < source.length; srcptr++) {
-        console.debug(source[srcptr]);
+        switch (source[srcptr]) {
+            case '+':
+                f.push(0x10, PLUS); //call $plus
+                break;
+            default:
+                console.debug("ignoring unknown character " + source[srcptr])
+        }
     }
 
     f.push(0x0B); // end
