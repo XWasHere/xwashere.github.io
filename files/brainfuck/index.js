@@ -31,6 +31,7 @@ async function compile(src) {
     let f = [];
     const INIT_MEM = template.linking.symbols.funcs.init_mem.index.value;
     const PLUS     = template.linking.symbols.funcs.plus.index.value;
+    const MINUS    = template.linking.symbols.funcs.minus.index.value;
     const MAIN     = template.linking.symbols.funcs.main.index.value;
 
     f.push(0x10, INIT_MEM); // call $init_mem
@@ -39,6 +40,9 @@ async function compile(src) {
         switch (source[srcptr]) {
             case '+':
                 f.push(0x10, PLUS); //call $plus
+                break;
+            case '-':
+                f.push(0x10, MINUS);
                 break;
             default:
                 console.debug("ignoring unknown character " + source[srcptr])

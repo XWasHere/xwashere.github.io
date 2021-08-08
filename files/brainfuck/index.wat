@@ -19,7 +19,11 @@
     )
 
     (func $minus
-    
+        (if (i32.eq (i32.load8_u (global.get $dp)) (i32.const 0)) (then
+            (i32.store8 (global.get $dp) (i32.const 255))
+        ) (else
+            (i32.store8 (global.get $dp) (i32.sub (i32.load8_u (global.get $dp)) (i32.const 1)))
+        ))
     )
 
     (func $out
