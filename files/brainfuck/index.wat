@@ -2,12 +2,37 @@
     (global $dp (mut i32) (i32.const 0    )) ;; data pointer
     (global $ml (mut i32) (i32.const 30000))
 
-    (func $right
+    (func $sep)
 
+    (func $brackets
+        global.get $dp
+        i32.load8_u
+        if
+            loop
+
+            (call $sep)  ;; This splits the [ and ]
+            
+            global.get $dp
+            i32.load8_u
+            br_if 0
+            end
+        end
+    )
+
+    (func $right
+        (if (i32.eq (global.get $dp) (global.get $ml)) (then
+            (global.set $dp (i32.const 0))
+        ) (else
+            (global.set $dp (i32.add (global.get $dp) (i32.const 1)))
+        ))
     )
 
     (func $left
-    
+        (if (i32.eq (global.get $dp) (i32.const 0)) (then
+            (global.set $dp (global.get $ml))
+        ) (else
+            (global.set $dp (i32.sub (global.get $dp) (i32.const 1)))
+        ))
     )
 
     (func $plus

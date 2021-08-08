@@ -1,5 +1,34 @@
 // Library for webassembly manipulation, Copyright XWasHere 2021
 
+function encode_uint(N, value) {
+    let o = []
+    
+    // let a = value.toString(2)
+    //     .padStart(Math.ceil(value.toString(2).length/7)*7,"0")
+    //     .split(/(.{7})/)
+    //     .join(" ")
+    //     .trimStart()
+    //     .replaceAll("  ","1")
+    //     .replace(/^/, "0")
+    //     .split(/(.{8})/)
+    //     .join(" ")
+    //     .replaceAll("  ", " ")
+    //     .trimStart()
+    //     .trimEnd()
+    //     .split(" ")
+    //     .map((v) => Number.parseInt(v, 2))
+    //     .reverse();
+    // return a;
+
+    do {
+        let b = value & 0x7f
+        value >>=7;
+        if (value != 0) o.push(b | 0x80)
+        else o.push(b)
+    } while (value != 0)
+    return o
+}
+
 function atos(a) {
     return Array.from(new Uint8Array(a)).map((x)=>String.fromCharCode(x)).join('');
 }
@@ -596,35 +625,6 @@ class Module {
 
     // im so sorry...
     encode() {
-        function encode_uint(N, value) {
-            let o = []
-            
-            // let a = value.toString(2)
-            //     .padStart(Math.ceil(value.toString(2).length/7)*7,"0")
-            //     .split(/(.{7})/)
-            //     .join(" ")
-            //     .trimStart()
-            //     .replaceAll("  ","1")
-            //     .replace(/^/, "0")
-            //     .split(/(.{8})/)
-            //     .join(" ")
-            //     .replaceAll("  ", " ")
-            //     .trimStart()
-            //     .trimEnd()
-            //     .split(" ")
-            //     .map((v) => Number.parseInt(v, 2))
-            //     .reverse();
-            // return a;
-
-            do {
-                let b = value & 0x7f
-                value >>=7;
-                if (value != 0) o.push(b | 0x80)
-                else o.push(b)
-            } while (value != 0)
-            return o
-        }
-        
         let data = [0x00,0x61,0x73,0x6D,0x01,0x00,0x00,0x00];
 
         // types
@@ -992,4 +992,4 @@ function decompile(mod) {
     return m
 }
 
-window.wasm = {decompile};
+window.wasm = {decompile, Module, encode_uint};
