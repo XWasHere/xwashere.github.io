@@ -2,12 +2,99 @@
 <html>
     <head>
         <script src="../wasm.js"></script>
+        <link rel="stylesheet" href="style.css">
         <title>WASM Brainfuck</title>
     </head>
     <body>
-        <input type="text" id="src">
-        <button onclick="load()"></button>
+        <div class="root">
+            <div class="thing">
+                <div class="topbar">
+                    <div class="topbar-item">
+                        <div class="page-title"><div>WebAssembly Brainfuck!</div></div>
+                    </div>
+                    <div class="topbar-fill topbar-item"></div>
+                    <div class="topbar-item back-button">
+                        <a href="../">main page</a>
+                    </div>
+                </div>
+                <div class="main">
+                    <div class="app">
+                        <div class="controldiv">
+                            <div class="codediv">
+                                <div class="code">
+                                    <textarea id="src" class="codeinput"></textarea>
+                                </div>
+                            </div>
+                            <div class="controls">
+                                <button onclick="load()">run</button>
+                            </div>
+                        </div>
+                        <div class="iodiv">
+                            <div class="stdout" id="output"></div>
+                            <div class="inputdiv">
+                                <input type="text" id="input" class="stdin">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div>
+                            <div>
+                                <h2>about</h2>
+                            </div>
+                            <div>
+                                <p>it converts from brainfuck to webassembly, runs pretty fast</p>
+                            </div>
+                        </div>
+                        <div>
+                            <div>
+                                <h2>how to use</h2>
+                            </div>
+                            <div>
+                                <p>well... <i>uh...</i></p>
+                                <ul>
+                                    <li><b>+</b> increments the cell at the data pointer
+                                    <li><b>-</b> does the opposite
+                                    <li><b><</b> moves the pointer left
+                                    <li><b>></b> moves it right
+                                    <li><b>.</b> outputs a character
+                                    <li><b>,</b> reads a character
+                                    <li><b>[]</b> are like a loop if the cell is nonzero
+                                </ul>
+                                <p><i><b>, doesn't work lol</b></i></p>
+                            </div>
+                        </div>
+                        <div>
+                            <div>
+                                <h2>if you want to contact me</h2>
+                            </div>
+                            <div>
+                                <div>
+                                    <div>
+                                        <a>discord</a>
+                                    </div>
+                                    <div>
+                                        <div>
+                                            <a>xeexee<a>#6342</a></a>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div>
+                                        <a>github</a>
+                                    </div>
+                                    <div>
+                                        <a>@xwashere</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                (c) copyright xwashere, 2021
+            </div>
+        </div>
         <script src="index.js"></script>
-        <div id = output></div>
     </body>
 </html>
