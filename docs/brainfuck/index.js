@@ -20,7 +20,6 @@
 let template = {};
 
 async function init() {
-    console.debug("Getting template");
     const mod = await fetch("index.wasm");
     let a = await mod.arrayBuffer();
     const tb = new Uint8Array(a);
@@ -149,7 +148,6 @@ async function run() {
     executor = new Worker("executor.js");
     executor.onmessage = (ev) => {
         let op = ev.data;
-        console.log(ev)
         switch (op[0]) {
             case "PUTC":
                 stdout.textContent = stdout.textContent + String.fromCharCode(op[1]);

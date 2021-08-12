@@ -14,8 +14,7 @@ async function exec(module) {
             }
         }
     });
-
-    console.log(m);
+    
     m.instance.exports.main();
 }
 

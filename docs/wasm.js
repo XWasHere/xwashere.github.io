@@ -177,27 +177,21 @@ class Module {
      * @param {Uint8Array} data
      */
     decode(data) {
-        console.group("module")
         let bstack = [];
         let i = 0;
         let linking;
 
         function RF_START(t) {
-            console.groupCollapsed(t);
             bstack.push(i);
         }
 
         function RF_END(t) {
             let b = bstack.pop();
-            console.debug("[accept " + t + " (" + atos(data.subarray(b, i)) + ")]")
-            console.groupEnd();
         }
 
         function RF_FAIL(t) {
             let oldi = i;
             i = bstack.pop();
-            console.debug("[fail " + t + " (" + atos(data.subarray(i, oldi)) + ")]");
-            console.groupEnd();
         }
 
         function read_vec(type) {
@@ -676,7 +670,6 @@ class Module {
             f.body = c.e;
             this.funcs.push(f)
         })
-        console.groupEnd();
     }
 
     // im so sorry...
@@ -1069,7 +1062,6 @@ class ImportDesc {
 function decompile(mod) {
     let m = new Module();
     m.decode(mod);
-    console.log(m)
     return m
 }
 
