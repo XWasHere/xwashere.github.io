@@ -106,7 +106,7 @@ async function compile(src) {
     let i = document.getElementById("stdin").value
     let o = document.getElementById("stdout")
 
-    let mod = await WebAssembly.instantiate(output.encode(), {
+    /*let mod = await WebAssembly.instantiate(output.encode(), {
         // not a vm but youknow
 
         vm: {
@@ -124,8 +124,8 @@ async function compile(src) {
     
     console.log(mod.instance.exports)
     mod.instance.exports.main();
-
-    return;
+    */
+    return output.encode();
 }
 
 async function load() {
@@ -134,4 +134,34 @@ async function load() {
     compile(t);
 }
 
-init().then(()=>{compile("++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.")});
+//init().then(()=>{
+    //compile("++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.")})
+
+init();
+
+let stdout = document.getElementById("stdout");
+let stdin  = document.getElementById("stdin");
+
+var executor;
+
+async function run() {
+    stdout.textContent = ""
+    executor = new Worker("executor.js");
+    executor.onmessage = (ev) => {
+        let op = ev.data;
+        console.log(ev)
+        switch (op[0]) {
+            case "PUTC":
+                stdout.textContent = stdout.textContent + String.fromCharCode(op[1]);
+        }
+    }
+    let c = document.getElementById("src").value;
+    let mod = await compile(c)
+    executor.postMessage(["EXEC", mod, stdin.value])
+}
+
+async function kill() {
+    executor.terminate();
+}
+
+//});
