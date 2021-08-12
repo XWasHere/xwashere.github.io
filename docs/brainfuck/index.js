@@ -101,10 +101,13 @@ async function compile(src) {
 
     console.log(output.encode())
 
-    let o = document.getElementById("output")
+    let o = document.getElementById("stdout")
+
     let mod = await WebAssembly.instantiate(output.encode(), {
-        console: {
-            log: (c) => {
+        // not a vm but youknow
+
+        vm: {
+            putc: (c) => {
                 o.textContent = o.textContent + String.fromCharCode(c);
             }
         }
@@ -117,7 +120,7 @@ async function compile(src) {
 }
 
 async function load() {
-    document.getElementById("output").textContent = ""
+    document.getElementById("stdout").textContent = ""
     let t = document.getElementById("src").value;
     compile(t);
 }

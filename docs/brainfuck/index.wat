@@ -17,7 +17,8 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ;)
 (module $template
-    (import "console" "log" (func $console.log (param i32)))
+    (import "vm" "putc" (func $putc (param  i32)))
+    (;import "vm" "getc" (func $getc (result i32));)
 
     (global $dp (mut i32) (i32.const 0    )) ;; data pointer
     (global $ml (mut i32) (i32.const 30000))
@@ -27,7 +28,7 @@
     (func $dot
         global.get $dp
         i32.load8_u
-        call $console.log
+        call $putc
     )
 
     (func $brackets
