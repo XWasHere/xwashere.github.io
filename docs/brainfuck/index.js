@@ -36,6 +36,7 @@ async function compile(src) {
         newOutput.set(output);
         output = newOutput;
     }
+
     let source = src.split('');
     let output = template; //new Uint8Array();
     let srcptr = 0;
@@ -52,10 +53,11 @@ async function compile(src) {
     const MINUS    = template.linking.symbols.funcs.minus.index.value;
     const RIGHT    = template.linking.symbols.funcs.right.index.value;
     const LEFT     = template.linking.symbols.funcs.left.index.value;
-    const MAIN     = template.linking.symbols.funcs.main.index.value - 1; // wtf
+    const MAIN     = template.linking.symbols.funcs.main.index.value - 2; // wtf
     const DOT      = template.linking.symbols.funcs.dot.index.value;
+    const COMMA    = template.linking.symbols.funcs.comma.index.value;
 
-    const BRACKET  = template.funcs[template.linking.symbols.funcs.brackets.index.value - 1].body
+    const BRACKET  = template.funcs[template.linking.symbols.funcs.brackets.index.value - 2].body
     const SEP      = template.linking.symbols.funcs.sep.index.value;
     let BRACKET_SPLIT = BRACKET.findIndex((v, i, a) => {
         if (a.slice(i,i+6).join()==[0x10,0x80+SEP,0x80,0x80,0x80,0].join()) {
@@ -90,8 +92,10 @@ async function compile(src) {
             case '.':
                 f.push(0x10, DOT);
                 break;
+            case ',':
+                f.push(0x10, COMMA);
+                break;
             default:
-                console.debug("ignoring unknown character " + source[srcptr])
         }
     }
 
@@ -99,8 +103,7 @@ async function compile(src) {
 
     output.funcs[MAIN].body = f;
 
-    console.log(output.encode())
-
+    let i = document.getElementById("stdin").value
     let o = document.getElementById("stdout")
 
     let mod = await WebAssembly.instantiate(output.encode(), {
@@ -109,11 +112,17 @@ async function compile(src) {
         vm: {
             putc: (c) => {
                 o.textContent = o.textContent + String.fromCharCode(c);
+            },
+            getc: () => {
+                let c = i[0];
+                i = i.substr(1)
+                if (c) return c.charCodeAt(0)
+                else return 0;
             }
         }
     });
     
-    console.log(mod)
+    console.log(mod.instance.exports)
     mod.instance.exports.main();
 
     return;
