@@ -1,7 +1,13 @@
+console.log ("Executor Started.");
+
 let i;
 
 async function exec(module) {
-    let m =  await WebAssembly.instantiate(module, {
+    function dump() {
+        var mem = m.instance.exports.mem.buffer;
+    }
+
+    let m = await WebAssembly.instantiate(module, {
         vm: {
             putc: (c) => {
                 postMessage(["PUTC",c])
@@ -11,11 +17,17 @@ async function exec(module) {
                 i = i.substr(1)
                 if (c) return c.charCodeAt(0)
                 else return 0;
+            },
+            debug: () => {
+                debugger;
             }
         }
     });
     
     m.instance.exports.main();
+    dump();
+    postMessage(["EXIT"]);
+    self.close();
 }
 
 onmessage = (m) => {

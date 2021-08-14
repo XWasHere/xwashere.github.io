@@ -17,6 +17,8 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+const DEBUG_CHAR = '#'
+
 let template = {};
 
 async function init() {
@@ -30,7 +32,8 @@ async function init() {
 
 async function compile(config) {
     let src    = config.src;
-    let inline = config.args.inline;
+    let inline = config.args.inline || false;
+    let debug  = config.args.debug  || false;
 
     function growBuffer(bytes) {
         let newbuf = new ArrayBuffer(output.byteLength + bytes);
@@ -69,10 +72,10 @@ async function compile(config) {
     const MINUS    = template.linking.symbols.funcs.minus.index.value;
     const RIGHT    = template.linking.symbols.funcs.right.index.value;
     const LEFT     = template.linking.symbols.funcs.left.index.value;
-    const MAIN     = template.linking.symbols.funcs.main.index.value - 2; // wtf
+    const MAIN     = template.linking.symbols.funcs.main.index.value - IMPORT_C; // wtf
     const DOT      = template.linking.symbols.funcs.dot.index.value;
     const COMMA    = template.linking.symbols.funcs.comma.index.value;
-
+    const DEBUG    = template.linking.symbols.funcs.debugger.index.value;
     const BRACKET  = template.funcs[template.linking.symbols.funcs.brackets.index.value - 2].body
     const SEP      = template.linking.symbols.funcs.sep.index.value;
 
@@ -122,6 +125,12 @@ async function compile(config) {
             case ',':
                 if (inline) f.push(...inline_method(COMMA))
                 else f.push(0x10, COMMA);
+                break;
+            case DEBUG_CHAR:
+                if (debug) {
+                    if (inline) f.push(...inline_method(DEBUG))
+                    else f.push(0x10, DEBUG);
+                }
                 break;
             default:
         }
@@ -183,19 +192,23 @@ var executor;
 async function run() {
     stdout.textContent = ""
     executor = new Worker("executor.js");
-    executor.onmessage = (ev) => {
+    executor.onmessage = (ev, t) => {
         let op = ev.data;
         switch (op[0]) {
             case "PUTC":
                 stdout.textContent = stdout.textContent + String.fromCharCode(op[1]);
+            case "DUMP":
+                console.log(ev)
+                debugger;
         }
     }
 
     let c = document.getElementById("src").value;
     let doInline = document.getElementById("inline").checked;
-
+    let doDebug  = document.getElementById("debug") .checked;
     let mod = await compile({src: c, args: {
-        inline: doInline
+        inline: doInline,
+        debug:  doDebug,
     }});
 
     executor.postMessage(["EXEC", mod, stdin.value])
