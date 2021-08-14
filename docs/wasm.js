@@ -332,7 +332,7 @@ class Module {
             let j = len;
             let name = atos(read_name().value);
             if (name == "linking") {
-                console.debug("found special non-standard section: LINKING (result: evaluating)")
+                //console.debug("found special non-standard section: LINKING (result: evaluating)")
                 linking = read_linkingsec();
                 RF_END("custom");
                 return true;
@@ -576,7 +576,7 @@ class Module {
                     symbol.type = read_byte();
                     symbol.flags= read_uint(32);
                     symbol.index= read_uint(32);
-                    console.log(symbol)
+//                    console.log(symbol)
                     if (symbol.flags.value != 0x10) {
                         symbol.name = read_name();
                         if (symbol.type == 0x00) {

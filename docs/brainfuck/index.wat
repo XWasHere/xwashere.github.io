@@ -82,17 +82,13 @@
         ))
     )
 
-    (func $out
-    
-    )
-
     (func $main
 
     )
 
     (func $init_mem
         (memory.grow (i32.trunc_f32_u (f32.ceil (f32.div (f32.convert_i32_u (global.get $ml)) (f32.const 65536)))))
-        (return)
+        drop
     )
 
     (memory $mem 0)

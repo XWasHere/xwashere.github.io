@@ -28,12 +28,26 @@ async function init() {
     //gen_module_parse_tree(tb);
 };
 
-async function compile(src) {
+async function compile(config) {
+    let src    = config.src;
+    let inline = config.args.inline;
+
     function growBuffer(bytes) {
         let newbuf = new ArrayBuffer(output.byteLength + bytes);
         let newOutput = new Uint8Array(newbuf);
         newOutput.set(output);
         output = newOutput;
+    }
+
+    function inline_method(index) {
+        let real_index    = index - IMPORT_C;
+        let input         = output.funcs[real_index].body;
+        let out           = [];
+
+        out = Array.from(input);
+        out.pop();
+
+        return out;
     }
 
     let source = src.split('');
@@ -47,6 +61,9 @@ async function compile(src) {
 
     // get refs to functions we'll call in the template module
     let f = [];
+
+    const IMPORT_C = template.imports.length;
+
     const INIT_MEM = template.linking.symbols.funcs.init_mem.index.value;
     const PLUS     = template.linking.symbols.funcs.plus.index.value;
     const MINUS    = template.linking.symbols.funcs.minus.index.value;
@@ -58,29 +75,39 @@ async function compile(src) {
 
     const BRACKET  = template.funcs[template.linking.symbols.funcs.brackets.index.value - 2].body
     const SEP      = template.linking.symbols.funcs.sep.index.value;
+
     let BRACKET_SPLIT = BRACKET.findIndex((v, i, a) => {
         if (a.slice(i,i+6).join()==[0x10,0x80+SEP,0x80,0x80,0x80,0].join()) {
             return true
         }
     })
+    
     const LBRACKET = BRACKET.slice(0, BRACKET_SPLIT);
     const RBRACKET = BRACKET.slice(BRACKET_SPLIT,BRACKET.length-1);
 
-    f.push(0x10, INIT_MEM); // call $init_mem
-    
+    if (inline) {
+        f.push(...inline_method(INIT_MEM));
+        //f.push(...template)
+    }
+    else f.push(0x10, INIT_MEM); // call $init_mem
+
     for (srcptr = 0; srcptr < source.length; srcptr++) {
         switch (source[srcptr]) {
             case '+':
-                f.push(0x10, PLUS);  // call $plus
+                if (inline) f.push(...inline_method(PLUS))
+                else f.push(0x10, PLUS);
                 break;
             case '-':
-                f.push(0x10, MINUS); // call $minus
+                if (inline) f.push(...inline_method(MINUS))
+                else f.push(0x10, MINUS); // call $minus
                 break;
             case '>':
-                f.push(0x10, RIGHT); // call $right
+                if (inline) f.push(...inline_method(RIGHT))
+                else f.push(0x10, RIGHT); // call $right
                 break;
             case '<':
-                f.push(0x10, LEFT);  // call $left
+                if (inline) f.push(...inline_method(LEFT))
+                else f.push(0x10, LEFT);  // call $left
                 break;
             case '[':
                 f.push(...LBRACKET)
@@ -89,10 +116,12 @@ async function compile(src) {
                 f.push(...RBRACKET)
                 break;
             case '.':
-                f.push(0x10, DOT);
+                if (inline) f.push(...inline_method(DOT))
+                else f.push(0x10, DOT);
                 break;
             case ',':
-                f.push(0x10, COMMA);
+                if (inline) f.push(...inline_method(COMMA))
+                else f.push(0x10, COMMA);
                 break;
             default:
         }
@@ -133,10 +162,18 @@ async function load() {
     compile(t);
 }
 
-//init().then(()=>{
-    //compile("++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.")})
-
-init();
+if (false)
+init().then(()=>{
+    return compile({
+        src: "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.",
+        args: {
+            inline: true
+        }
+    })})
+    .then(d => {return WebAssembly.instantiate(d,{vm:{putc:(c)=>{stdout.textContent=stdout.textContent+String.fromCharCode(c);},getc:()=>{}}})})
+    .then(m=>{console.log(m);m.instance.exports.main()}, console.error)
+    .then(console.log, console.error)
+else {init()}
 
 let stdout = document.getElementById("stdout");
 let stdin  = document.getElementById("stdin");
@@ -153,8 +190,14 @@ async function run() {
                 stdout.textContent = stdout.textContent + String.fromCharCode(op[1]);
         }
     }
+
     let c = document.getElementById("src").value;
-    let mod = await compile(c)
+    let doInline = document.getElementById("inline").checked;
+
+    let mod = await compile({src: c, args: {
+        inline: doInline
+    }});
+
     executor.postMessage(["EXEC", mod, stdin.value])
 }
 
