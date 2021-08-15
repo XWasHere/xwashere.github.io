@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"discord.lowerDetailsDebugging": "Debugging: X's Thing",
+		"discord.lowerDetailsEditing": "Workspace: X's Thing"
+	}
+}
