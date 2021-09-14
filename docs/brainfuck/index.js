@@ -204,11 +204,7 @@ async function run() {
     }
 
     let c = document.getElementById("src").value;
-    let doInline = document.getElementById("inline").checked;
-    let doDebug  = document.getElementById("debug") .checked;
     let mod = await compile({src: c, args: {
-        inline: doInline,
-        debug:  doDebug,
     }});
 
     executor.postMessage(["EXEC", mod, stdin.value])
