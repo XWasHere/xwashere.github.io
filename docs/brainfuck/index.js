@@ -1,7 +1,7 @@
 /*
     WASM Brainfuck
 
-    Copyright (C) 2021 XWasHere 
+    Copyright (C) 2022 XWasHere 
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -17,10 +17,11 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+const DEBUG_CHAR = '#'
+
 let template = {};
 
 async function init() {
-    console.debug("Getting template");
     const mod = await fetch("index.wasm");
     let a = await mod.arrayBuffer();
     const tb = new Uint8Array(a);
@@ -29,12 +30,27 @@ async function init() {
     //gen_module_parse_tree(tb);
 };
 
-async function compile(src) {
+async function compile(config) {
+    let src    = config.src;
+    let inline = config.args.inline || false;
+    let debug  = config.args.debug  || false;
+
     function growBuffer(bytes) {
         let newbuf = new ArrayBuffer(output.byteLength + bytes);
         let newOutput = new Uint8Array(newbuf);
         newOutput.set(output);
         output = newOutput;
+    }
+
+    function inline_method(index) {
+        let real_index    = index - IMPORT_C;
+        let input         = output.funcs[real_index].body;
+        let out           = [];
+
+        out = Array.from(input);
+        out.pop();
+
+        return out;
     }
 
     let source = src.split('');
@@ -48,40 +64,53 @@ async function compile(src) {
 
     // get refs to functions we'll call in the template module
     let f = [];
+
+    const IMPORT_C = template.imports.length;
+
     const INIT_MEM = template.linking.symbols.funcs.init_mem.index.value;
     const PLUS     = template.linking.symbols.funcs.plus.index.value;
     const MINUS    = template.linking.symbols.funcs.minus.index.value;
     const RIGHT    = template.linking.symbols.funcs.right.index.value;
     const LEFT     = template.linking.symbols.funcs.left.index.value;
-    const MAIN     = template.linking.symbols.funcs.main.index.value - 2; // wtf
+    const MAIN     = template.linking.symbols.funcs.main.index.value - IMPORT_C; // wtf
     const DOT      = template.linking.symbols.funcs.dot.index.value;
     const COMMA    = template.linking.symbols.funcs.comma.index.value;
-
+    const DEBUG    = template.linking.symbols.funcs.debugger.index.value;
     const BRACKET  = template.funcs[template.linking.symbols.funcs.brackets.index.value - 2].body
     const SEP      = template.linking.symbols.funcs.sep.index.value;
+
     let BRACKET_SPLIT = BRACKET.findIndex((v, i, a) => {
         if (a.slice(i,i+6).join()==[0x10,0x80+SEP,0x80,0x80,0x80,0].join()) {
             return true
         }
     })
+    
     const LBRACKET = BRACKET.slice(0, BRACKET_SPLIT);
     const RBRACKET = BRACKET.slice(BRACKET_SPLIT,BRACKET.length-1);
 
-    f.push(0x10, INIT_MEM); // call $init_mem
-    
+    if (inline) {
+        f.push(...inline_method(INIT_MEM));
+        //f.push(...template)
+    }
+    else f.push(0x10, INIT_MEM); // call $init_mem
+
     for (srcptr = 0; srcptr < source.length; srcptr++) {
         switch (source[srcptr]) {
             case '+':
-                f.push(0x10, PLUS);  // call $plus
+                if (inline) f.push(...inline_method(PLUS))
+                else f.push(0x10, PLUS);
                 break;
             case '-':
-                f.push(0x10, MINUS); // call $minus
+                if (inline) f.push(...inline_method(MINUS))
+                else f.push(0x10, MINUS); // call $minus
                 break;
             case '>':
-                f.push(0x10, RIGHT); // call $right
+                if (inline) f.push(...inline_method(RIGHT))
+                else f.push(0x10, RIGHT); // call $right
                 break;
             case '<':
-                f.push(0x10, LEFT);  // call $left
+                if (inline) f.push(...inline_method(LEFT))
+                else f.push(0x10, LEFT);  // call $left
                 break;
             case '[':
                 f.push(...LBRACKET)
@@ -90,10 +119,18 @@ async function compile(src) {
                 f.push(...RBRACKET)
                 break;
             case '.':
-                f.push(0x10, DOT);
+                if (inline) f.push(...inline_method(DOT))
+                else f.push(0x10, DOT);
                 break;
             case ',':
-                f.push(0x10, COMMA);
+                if (inline) f.push(...inline_method(COMMA))
+                else f.push(0x10, COMMA);
+                break;
+            case DEBUG_CHAR:
+                if (debug) {
+                    if (inline) f.push(...inline_method(DEBUG))
+                    else f.push(0x10, DEBUG);
+                }
                 break;
             default:
         }
@@ -106,7 +143,7 @@ async function compile(src) {
     let i = document.getElementById("stdin").value
     let o = document.getElementById("stdout")
 
-    let mod = await WebAssembly.instantiate(output.encode(), {
+    /*let mod = await WebAssembly.instantiate(output.encode(), {
         // not a vm but youknow
 
         vm: {
@@ -124,8 +161,8 @@ async function compile(src) {
     
     console.log(mod.instance.exports)
     mod.instance.exports.main();
-
-    return;
+    */
+    return output.encode();
 }
 
 async function load() {
@@ -134,4 +171,47 @@ async function load() {
     compile(t);
 }
 
-init().then(()=>{compile("++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.")});
+if (false)
+init().then(()=>{
+    return compile({
+        src: "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.",
+        args: {
+            inline: true
+        }
+    })})
+    .then(d => {return WebAssembly.instantiate(d,{vm:{putc:(c)=>{stdout.textContent=stdout.textContent+String.fromCharCode(c);},getc:()=>{}}})})
+    .then(m=>{console.log(m);m.instance.exports.main()}, console.error)
+    .then(console.log, console.error)
+else {init()}
+
+let stdout = document.getElementById("stdout");
+let stdin  = document.getElementById("stdin");
+
+var executor;
+
+async function run() {
+    stdout.textContent = ""
+    executor = new Worker("executor.js");
+    executor.onmessage = (ev, t) => {
+        let op = ev.data;
+        switch (op[0]) {
+            case "PUTC":
+                stdout.textContent = stdout.textContent + String.fromCharCode(op[1]);
+            case "DUMP":
+                console.log(ev)
+                debugger;
+        }
+    }
+
+    let c = document.getElementById("src").value;
+    let mod = await compile({src: c, args: {
+    }});
+
+    executor.postMessage(["EXEC", mod, stdin.value])
+}
+
+async function kill() {
+    executor.terminate();
+}
+
+//});

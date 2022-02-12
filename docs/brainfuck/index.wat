@@ -1,7 +1,7 @@
 (;
     WASM Brainfuck
 
-    Copyright (C) 2021 XWasHere 
+    Copyright (C) 2022 XWasHere 
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -19,11 +19,16 @@
 (module $template
     (import "vm" "putc" (func $putc (param  i32)))
     (import "vm" "getc" (func $getc (result i32)))
+    (import "vm" "debug" (func $dbg))
 
     (global $dp (mut i32) (i32.const 0    )) ;; data pointer
     (global $ml (mut i32) (i32.const 30000))
 
     (func $sep)
+
+    (func $debugger
+        (call $dbg)
+    )
 
     (func $comma
         (i32.store8 (global.get $dp) (call $getc))
@@ -82,17 +87,13 @@
         ))
     )
 
-    (func $out
-    
-    )
-
     (func $main
 
     )
 
     (func $init_mem
         (memory.grow (i32.trunc_f32_u (f32.ceil (f32.div (f32.convert_i32_u (global.get $ml)) (f32.const 65536)))))
-        (return)
+        drop
     )
 
     (memory $mem 0)

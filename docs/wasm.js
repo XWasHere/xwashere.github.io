@@ -1,7 +1,7 @@
 /*
     wasm.js
 
-    Copyright (C) 2021 XWasHere 
+    Copyright (C) 2022 XWasHere 
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -177,27 +177,21 @@ class Module {
      * @param {Uint8Array} data
      */
     decode(data) {
-        console.group("module")
         let bstack = [];
         let i = 0;
         let linking;
 
         function RF_START(t) {
-            console.groupCollapsed(t);
             bstack.push(i);
         }
 
         function RF_END(t) {
             let b = bstack.pop();
-            console.debug("[accept " + t + " (" + atos(data.subarray(b, i)) + ")]")
-            console.groupEnd();
         }
 
         function RF_FAIL(t) {
             let oldi = i;
             i = bstack.pop();
-            console.debug("[fail " + t + " (" + atos(data.subarray(i, oldi)) + ")]");
-            console.groupEnd();
         }
 
         function read_vec(type) {
@@ -338,7 +332,7 @@ class Module {
             let j = len;
             let name = atos(read_name().value);
             if (name == "linking") {
-                console.debug("found special non-standard section: LINKING (result: evaluating)")
+                //console.debug("found special non-standard section: LINKING (result: evaluating)")
                 linking = read_linkingsec();
                 RF_END("custom");
                 return true;
@@ -582,7 +576,7 @@ class Module {
                     symbol.type = read_byte();
                     symbol.flags= read_uint(32);
                     symbol.index= read_uint(32);
-                    console.log(symbol)
+//                    console.log(symbol)
                     if (symbol.flags.value != 0x10) {
                         symbol.name = read_name();
                         if (symbol.type == 0x00) {
@@ -676,7 +670,6 @@ class Module {
             f.body = c.e;
             this.funcs.push(f)
         })
-        console.groupEnd();
     }
 
     // im so sorry...
@@ -1069,7 +1062,6 @@ class ImportDesc {
 function decompile(mod) {
     let m = new Module();
     m.decode(mod);
-    console.log(m)
     return m
 }
 
