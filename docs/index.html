@@ -18,33 +18,70 @@
 -->
 <!DOCTYPE html>
 <html>
-    <head>
-        <script src="/util.js"></script>
-        <title>thing</title>
-        <link href="/index.css" rel="stylesheet">
-    </head>
-    <body>
-        <!--i'm only good with flexboxes-->
-        <div class="title">
-            <h1>x's thing</h1>
-        </div>
-        <line></line>
-        <div class="projects">
-            <h1>my projects</h1>
-            <div class="projectlist">
-                <div onclick="window.navigate('brainfuck/');">
-                    <h2>wasm brainfuck</h2>
-                    <a>pretty cool i guess</a>
-                </div>
-            </div>
-        </div>
-        <div class="contact">
-            <div>
-                <a><b>discord</b> - niko (xwashere)#6342</a>
-            </div>
-            <div onclick="window.navigate('https://github.com/xwashere')">
-                <a><b>github</b>- xwashere</a>
-            </div>
-        </div>
-    </body>
+	<head>
+		<title>X's thing</title>
+		<style>
+            @import "./use_inter.css"
+                
+			.project_cards {
+				display: flex;
+				flex-wrap: wrap;
+			}
+
+			.project_card {
+				border-color: #000000;
+				border-style: solid;
+				border-width: 1px;
+				padding: 5px;
+			}
+
+			.project_card>h2 {
+				margin: 0px;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<article>
+				<h1>about me</h1>
+				<div>im xwashere, im a really bad programmer</div>
+				<div>i usually use C/C++ and javascript</div>
+			</article>
+			<article>
+				<h1>projects</h1>
+				<div class="project_cards">
+					<article class="project_card">
+						<h2>ircreborn</h2>
+						<p>a really bad chat app written in c++. currently on hold until i can pull myself together in school</p>
+						<ul>
+							<li>
+								<a href="https://github.com/xwashere/ircreborn" aria-label="github">github - ircreborn</a>
+							</li>
+						</ul>
+					</article>
+					<article class="project_card">
+						<h2>calc</h2>
+						<p>its a calculator i made when i was bored in class</p>
+						<p>more of a programming language than a calculator to be honest</p>
+						<ul>
+							<li>
+								<a href="https//github.com/xwashere/xwashere.github.io" aria-label="github">github - x's thing</a>
+							</li>
+							<li>
+								<a href="./calc/">try it out i guess</a>
+							</li>
+						</ul>
+					</article>
+				</div>
+			</article>
+			<article>
+				<h1>random links</h1>
+				<p><a href="https://github.com/xwashere">my github</a></p>
+			</article>
+		</main>
+		<!-- i have no idea if this will do anything, i just dont know how screen readers will respond to the (c) -->
+		<footer aria-label="copyright xwashere 2021-2022">
+			<a aria-hidden="true">copyright (c) xwashere 2021-2022</a>
+		</footer>
+	</body>
 </html>
