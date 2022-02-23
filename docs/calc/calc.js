@@ -12,13 +12,14 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
 var calc_root;
 var input_container;
 var input_thing;
 var output_container;
 var output_thing;
 
-class CJSType {
+export class CJSType {
 	is_primitave = false;
 	tr;
 	
@@ -76,16 +77,16 @@ class CJSType {
 	}
 }
 
-class CJSValue {
+export class CJSValue {
 	type;
 	value;
 }
 
-class CJSBoundFunction {
+export class CJSBoundFunction {
 	args;
 	retv;
 	handler;
-
+	
 	static bind(a, r, h) {
 		let f = new CJSBoundFunction();
 
@@ -105,7 +106,7 @@ class CJSBoundFunction {
 				if (v = this.args[i].cast(a)) {
 					nargs.push(v);
 				} else {
-					throw "t";
+					throw `[!VM{type error, ${a.type.tr.description} -> ${this.args[i].tr.description}}]`;
 				}
 			} else {
 				nargs.push(a)
@@ -116,7 +117,7 @@ class CJSBoundFunction {
 	}
 }
 
-class CJSContext {
+export class CJSContext {
 	parent  = null;
 	vars    = {};
 	funcs   = {};
@@ -165,7 +166,7 @@ class CJSContext {
 	}
 }
 
-class CJSIdentifier {
+export class CJSIdentifier {
 	name;
 
 	exec(i, context) {
@@ -190,7 +191,7 @@ class CJSIdentifier {
 	}
 }
 
-class CJSNumber {
+export class CJSNumber {
 	value;
 
 	exec(i, context) {
@@ -225,7 +226,7 @@ class CJSNumber {
 	}
 }
 
-class CJSParenExpr {
+export class CJSParenExpr {
 	expr;
 	
 	exec(i, context) {
@@ -238,8 +239,10 @@ class CJSParenExpr {
 		
 		if (p.src[p.pos] == "(") {
 			p.pos++;
+			p.eat_ws();
 			t = p.parse(CJSConditional);
 			if (t) {
+				p.eat_ws();
 				if (p.src[p.pos] == ")") {
 					p.pos++;
 					r.expr = t;
@@ -250,7 +253,7 @@ class CJSParenExpr {
 	}
 }
 
-class CJSVarDeclaration {
+export class CJSVarDeclaration {
 	name;
 	type;
 
@@ -270,6 +273,7 @@ class CJSVarDeclaration {
 			r.type = t.name;
 			if (p.src[p.pos] == " ") {
 				p.pos++;
+				p.eat_ws();
 				if (t = p.parse(CJSIdentifier)) {
 					r.name = t.name;
 					return r;
@@ -279,7 +283,7 @@ class CJSVarDeclaration {
 	}
 }
 
-class CJSPrimary {
+export class CJSPrimary {
 	a;
 
 	exec(i, context) {
@@ -317,7 +321,7 @@ class CJSPrimary {
 	}
 }
 
-class CJSExponent {
+export class CJSExponent {
 	a;
 	b;
 
@@ -331,9 +335,7 @@ class CJSExponent {
 			if (r) {
 				return r;
 			} else {
-				context.trapd = true;
-				context.trapv = `cant execute op ${a.type.tr.description} ^ ${a.type.tr.description}`;
-				throw context.trapv;
+				i.trap(`cant execute op ${a.type.tr.description} ^ ${a.type.tr.description}`);
 			}
 		} else {
 			return i.exec(this.a);
@@ -346,8 +348,10 @@ class CJSExponent {
 
 		if (t = p.parse(CJSPrimary)) {
 			r.a = t;
+			p.eat_ws();
 			if (p.src[p.pos] == "^") {
 				p.pos++;
+				p.eat_ws();
 				if (t = p.parse(CJSExponent)) {
 					r.b = t;
 					return r;
@@ -359,7 +363,7 @@ class CJSExponent {
 	}
 }
 
-class CJSMultiplicitave {
+export class CJSMultiplicitave {
 	a;
 	b;
 	type;
@@ -375,9 +379,7 @@ class CJSMultiplicitave {
 				if (r) {
 					return r;
 				} else {
-					context.trapd = true;
-					context.trapv = `cant execute op ${a.type.tr.description} * ${a.type.tr.description}`;
-					throw context.trapv;
+					i.trap(`cant execute op ${a.type.tr.description} * ${a.type.tr.description}`);
 				}
 			} else if (this.type == "/") {
 				let a = i.exec(this.a);
@@ -388,9 +390,7 @@ class CJSMultiplicitave {
 				if (r) {
 					return r;
 				} else {
-					context.trapd = true;
-					context.trapv = `cant execute op ${a.type.tr.description} / ${a.type.tr.description}`;
-					throw context.trapv;
+					i.trap(`cant execute op ${a.type.tr.description} / ${a.type.tr.description}`);
 				}
 			} else if (this.type == "%") {
 				let a = i.exec(this.a);
@@ -401,9 +401,7 @@ class CJSMultiplicitave {
 				if (r) {
 					return r;
 				} else {
-					context.trapd = true;
-					context.trapv = `cant execute op ${a.type.tr.description} % ${a.type.tr.description}`;
-					throw context.trapv;
+					i.trap(`cant execute op ${a.type.tr.description} % ${a.type.tr.description}`);
 				}
 			}
 		} else {
@@ -419,9 +417,11 @@ class CJSMultiplicitave {
 			r.b = t;
 
 			while (true) {
+				p.eat_ws();
 				if (/[*/%]/.test(p.src[p.pos])) {
 					let type = p.src[p.pos];
 					p.pos++;
+					p.eat_ws();
 					if (t = p.parse(CJSExponent)) {
 						let o = r;
 						r = new CJSMultiplicitave();
@@ -437,7 +437,7 @@ class CJSMultiplicitave {
 	}
 }
 
-class CJSAdditive {
+export class CJSAdditive {
 	a;
 	b;
 	type;
@@ -453,9 +453,7 @@ class CJSAdditive {
 				if (r) {
 					return r;
 				} else {
-					context.trapd = true;
-					context.trapv = `cant execute op ${a.type.tr.description} + ${a.type.tr.description}`;
-					throw context.trapv;
+					i.trap(`cant execute op ${a.type.tr.description} + ${a.type.tr.description}`);
 				}
 			} else if (this.type == "-") {
 				let a = i.exec(this.a);
@@ -466,9 +464,7 @@ class CJSAdditive {
 				if (r) {
 					return r;
 				} else {
-					context.trapd = true;
-					context.trapv = `cant execute op ${a.type.tr.description} - ${a.type.tr.description}`;
-					throw context.trapv;
+					i.trap(`cant execute op ${a.type.tr.description} - ${a.type.tr.description}`);
 				}
 			}
 		} else {
@@ -484,9 +480,11 @@ class CJSAdditive {
 			r.b = t;
 
 			while (true) {
+				p.eat_ws();
 				if (p.src[p.pos] == "+" || p.src[p.pos] == "-") {
 					let type = p.src[p.pos];
 					p.pos++;
+					p.eat_ws();
 					if (t = p.parse(CJSMultiplicitave)) {
 						let o = r;
 						r = new CJSAdditive();
@@ -502,14 +500,14 @@ class CJSAdditive {
 	}
 }
 
-class CJSConditional {
+export class CJSConditional {
 	a;
 	b;
 	c;
 
 	exec(i, context) {
 		if (this.b) {
-			if (this.a.exec(context)) {
+			if (i.exec(this.a)) {
 				return i.exec(this.b);
 			} else {
 				return i.exec(this.c);
@@ -525,12 +523,16 @@ class CJSConditional {
 
 		if (t = p.parse(CJSAdditive)) {
 			r.a = t;
+			p.eat_ws();
 			if (p.src[p.pos] == "?") {
 				p.pos++;
+				p.eat_ws();
 				if (t = p.parse(CJSAssignment)) {
 					r.b = t;
+					p.eat_ws();
 					if (p.src[p.pos] == ":") {
 						p.pos++;
+						p.eat_ws();
 						if (t = p.parse(CJSAssignment)) {
 							r.c = t;
 							return r;
@@ -544,7 +546,7 @@ class CJSConditional {
 	}
 }
 
-class CJSAssignment {
+export class CJSAssignment {
 	a;
 	b;
 
@@ -563,8 +565,10 @@ class CJSAssignment {
 		p.push();
 		if (t = p.parse(CJSIdentifier)) {
 			r.a = t.name;
+			p.eat_ws();
 			if (p.src[p.pos] == "=") {
 				p.pos++;
+				p.eat_ws();
 				if (t = p.parse(CJSConditional)) {
 					r.b = t;
 					p.drop();
@@ -582,7 +586,7 @@ class CJSAssignment {
 	}
 }
 
-class CJSExpr {
+export class CJSExpr {
 	expr;
 
 	exec(i, context) {
@@ -593,19 +597,22 @@ class CJSExpr {
 		let r = new CJSExpr();
 		let t;
 
+		p.eat_ws();
 		if (t = p.parse(CJSAssignment)) {
 			if (p.src[p.pos] == ";") {
-				while (p.src[p.pos] == "\n") p.pos++;
-				
 				p.pos++;
+				
+				p.eat_ws();
+				
 				r.expr = t;
+				
 				return r;
 			}
 		}
 	}
 }
 
-class CJSExprList {
+export class CJSExprList {
 	ins = [];
 
 	exec(i, context) {
@@ -623,6 +630,7 @@ class CJSExprList {
 		let t;
 
 		while (t = p.parse(CJSExpr)) {
+			p.eat_ws();
 			r.ins.push(t);
 		}
 
@@ -630,7 +638,7 @@ class CJSExprList {
 	}
 }
 
-class CJSCallArguments {
+export class CJSCallArguments {
 	args = [];
 
 	static parse(p) {
@@ -653,7 +661,7 @@ class CJSCallArguments {
 	}
 }
 
-class CJSCall {
+export class CJSCall {
 	target = null;
 	args   = [];
 
@@ -668,7 +676,7 @@ class CJSCall {
 			
 			return f.call(args);
 		} else {
-			throw "a";
+			i.trap(`${this.target.name} is not a function`);
 		}
 	}
 	
@@ -692,7 +700,7 @@ class CJSCall {
 	}
 }
 
-class CJSParser {
+export class CJSParser {
 	src   = "";
 	stack = [];
 	pos   = 0;
@@ -716,6 +724,12 @@ class CJSParser {
 	drop() {
 		this.stack.shift();
 	}
+
+	eat_ws() {
+		while (/[ \r\n\t]/.test(this.src[this.pos])) {
+			this.pos++;
+		}
+	}
 	
 	parse(c) {
 		this.push();
@@ -731,7 +745,7 @@ class CJSParser {
 	}
 }
 
-class CJSInterpreter {
+export class CJSInterpreter {
 	world = [];
 	
 	push_context(c) {
@@ -743,19 +757,20 @@ class CJSInterpreter {
 	pop_context() {
 		return this.world.shift();
 	}
+
+	trap(m) {
+		throw `[!VM{${m}}]`;
+	}
 	
 	exec(c) {
 		try {
 			let res = c.exec(this, this.world[0])
-
-			if (this.world[0].trapd) {
-				throw this.world[0].trapv;
-			}
 			
 			return res;
 		} catch (e) {
-			if (e == this.world[0].trapv) {
-				throw this.world[0].trapv;
+			if (/^\[!VM{.*}]$/.test(e)) {
+				// should handle traps
+				throw e;
 			} else {
 				throw e;
 			}
@@ -802,8 +817,8 @@ class CJSInterpreter {
 					[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
 						let r = new CJSValue();
 	
-						if (b.value == 0) {
-							throw "[!VM{divide by zero}]";
+						if (y.value == 0) {
+							this.trap("divide by zero");
 						}
 
 						r.type = int_t;
@@ -882,7 +897,7 @@ class CJSInterpreter {
 						let r = new CJSValue();
 	
 						if (b.value == 0) {
-							throw "[!VM{divide by zero}]";
+							this.trap("divide by zero");
 						}
 
 						r.type = float_t;
@@ -998,141 +1013,3 @@ class CJSInterpreter {
 		return this.exec(script);
 	}
 }
-
-function parse(e) {
-	let p = new CJSParser(e);
-	
-	let data = e;
-
-	let stack = [];
-	let pos   = 0;
-	
-	return p.parse(CJSExprList);
-}
-
-async function exec() {
-	let res = parse(input_thing.value);
-
-	if (!res) {
-		return;
-	}
-
-	console.log(res);
-
-	let int = new CJSInterpreter();
-
-	try {
-		res = int.exec_script(res);
-	} catch (e) {
-		if (int.world[0]?.trapd) {
-			res = `VM TRAP - "${e}"`;
-		} else {
-			throw e;
-		}
-	}
-	
-	console.log(res);
-
-	output_thing.textContent = res.value + "";
-}
-
-async function main() {
-	// thigns
-	calc_root = document.createElement("div");
-	document.body.appendChild(calc_root);
-
-	input_container = document.createElement("div");
-	calc_root.appendChild(input_container);
-
-	input_thing = document.createElement("input");
-
-	input_thing.addEventListener("input", exec);
-	
-	input_container.appendChild(input_thing);
-
-	output_container = document.createElement("div");
-	calc_root.appendChild(output_container);
-
-	output_thing = document.createTextNode("");
-	output_container.appendChild(output_thing);
-
-	// test
-	input_thing.value = 
-`int a;
-int b;
-b=0;
-a=1;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-a=a*2;
-b=b+a;
-b;`;
-
-	await exec();
-
-	// ready
-	input_thing.value = "";
-
-	await exec();
-}
-
-document.addEventListener("DOMContentLoaded", main)
