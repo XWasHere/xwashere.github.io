@@ -120,6 +120,7 @@ class CJSTextAreaElement extends HTMLElement {
 					cx++;
 				}
 			}
+			
 			if (/[ \t\r]/.test(this.__value[i])) {
 				if (ct.type == "whitespace") {
 					ct.data += this.__value[i];
@@ -129,7 +130,7 @@ class CJSTextAreaElement extends HTMLElement {
 				}
 			} else if (/\n/.test(this.value[i])) {
 				tokens.push(ct);
-				tokens.push({type: "newline", data: "\n", line: cy});
+				tokens.push({type: "newline", data: "", line: cy});
 				ct = {type: "generic", data: "", line: cy};
 				nlines.push(ldta);
 				ldta = "";
@@ -224,6 +225,7 @@ class CJSTextAreaElement extends HTMLElement {
 		let main = document.createElement("div");
 		let tarea = document.createElement("div");
 		let tiarea = this.text_area = document.createElement("div");
+		let tiareac = document.createElement("div");
 		let lines = this.linec = document.createElement("div");
 		let caret = this.caretc = document.createElement("div");
 		let caretr = this.caretr = document.createElement("div");
@@ -235,11 +237,17 @@ class CJSTextAreaElement extends HTMLElement {
 		main.className = "main";
 		tarea.className = "input";
 		tiarea.className = "content";
+		tiareac.className = "content_container";
 		lnos.className = "linenos";
 		caret.className = "caret_container";
 		hl.className = "highlight_container";
 		
 		style.innerHTML = `
+:host>div {
+	--MONO_WIDTH:  ${monospace_size.w}px;
+	--MONO_HEIGHT: ${monospace_size.h}px;
+}
+
 @keyframes blinky_thing {
 	0% {
 		background-color: #b0b0b0;
@@ -263,28 +271,40 @@ class CJSTextAreaElement extends HTMLElement {
 }
 
 .input {
-	background-color: #000000;
+	background-color: #1f1f1f;
 	height: 100%;
 	width: 100%;
+	overflow: auto;
 	display: flex;
 }
 
 .linenos {
-	flex-grow: 0;
-	flex-shrink: 0;
+	left: 0px;
+	position: sticky;
+	background-color: #000000;
+	min-height: 100%;
+	height: max-content;
 	width: 40px;
 	color: #a0a0a0;
 	border-right-width: 1px;
 	border-right-color: #7f7f7f;
 	border-right-style: solid;
+	flex-grow: 0;
+	flex-shrink: 0;
 }
 
 .content {
-	background-color: #1f1f1f;
-	height: 100%;
-	width: 100%;
+	flex-grow: 1;
+	min-height: 100%;
+	height: max-content;
 	padding-left: 2px;
 	caret-color: transparent;
+	background-color: #1f1f1f;
+}
+
+.content>div>div>span {
+	white-space: pre;
+	height: var(--MONO_HEIGHT);
 }
 
 .caret_container {
@@ -312,6 +332,7 @@ class CJSTextAreaElement extends HTMLElement {
 	height: 0px;
 	width: 0px;
 	overflow: visible;
+	background-color: #1f1f1f;
 }
 
 .highlight_container>div>div {
@@ -319,12 +340,35 @@ class CJSTextAreaElement extends HTMLElement {
 	background-color: #ffffff40;
 }
 
-.token_generic {
-	color: #a0a0a0;
+::-webkit-scrollbar {
+	background-color: #202020;
 }
 
-.token_ws {
-	white-space: pre;
+::-webkit-scrollbar {
+	background-color: #202020;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: #7f7f7f;
+}
+
+::-webkit-scrollbar-track:horizontal {
+	border-top-style: solid;
+	border-top-width: 1px;
+}
+
+::-webkit-scrollbar-track:vertical {
+	border-left-style: solid;
+	border-left-width: 1px;
+}
+
+::-webkit-scrollbar-corner {
+	background-color: #404040;
+}
+
+.token_generic {
+	color: #a0a0a0;
+/*	white-space: pre;*/
 }
 
 .token_number {
