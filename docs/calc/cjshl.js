@@ -32,6 +32,10 @@ class CJSTextAreaElement extends HTMLElement {
 	linec;
 	caretc;
 	hlc;
+
+	drag;
+	drag_s;
+	drag_e;
 	
 	lnos;
 	lines = [];
@@ -62,31 +66,52 @@ class CJSTextAreaElement extends HTMLElement {
 			}
 		}
 	}
+
+	chit(sx, sy) {
+		let br = this.text_area.getBoundingClientRect();
+		
+		let x = Math.floor((sx - br.x) / monospace_size.w);
+		let y = Math.floor((sy - br.y) / monospace_size.h);
+		
+		let cx = 0;
+		let cy = 0;
+		let np = 0;
+		
+		for (let i = 0; i <= this.__value.length && !(cx == x + 1 && cy == y); i++) {
+			if (this.__value[i] == "\n") {
+				cy++;
+				cx = 0;
+			} else {
+				cx++;
+			}
+			np = i;
+		}
+
+		return np;
+	}
 	
 	stylize() {
 		let caret  = this.caretc; //document.createElement("div");
 		let careti = this.caretr;
-		let lines  = this.linec; //document.createElement("div");
 		let line   = document.createElement("div");
-		let linec  = document.createElement("span");
 		let token  = document.createElement("span");
-		let hlgt   = this.hlc; //document.createElement("div");
+		let hlgt   = this.hlc;
 		let nlines = [];
 		
-		//let lnos   = document.createElement("div");
-
 		caret.className = "caret_container";
 		hlgt.className  = "highlight_container";
 		token.className = "token_generic";
 		
 		let cx = 0;
 		let cy = 0;
-		let ch = 14;
-		
-		let nxl = 2;
-		
-		let hlb, hle;
 
+		let tokens = [];
+		let ct = { type: "generic", data: "", line: 0 }
+		let ldta = "";
+
+		let hlgts = [];
+		let hlb, hle;
+		let hpb, hpe;
 		if (this.cursor_mark != null) {
 			if (this.cursor_mark < this.cursor_pos) {
 				hlb = this.cursor_mark - 1;
@@ -97,27 +122,25 @@ class CJSTextAreaElement extends HTMLElement {
 			}
 		}
 
-		let l;
-		let lhlb = null;
-		let lhl = null;
-		let lhlc = null; 
-		let inid = 0;
-		let lt = null;
-		let ltt = null;
-		let cl = 0;
-		let rl = 0;
-		let tokens = [];
-		let ct = { type: "generic", data: "", line: 0 }
-		let ldta = "";
-		
+		let rx = 0, ry = 0;
 		for (let i = 0; i < this.__value.length; i++) {
 			ldta += this.__value[i];
+			
+			if (this.__value[i] == '\n') {
+				rx = 0;
+				ry++;
+			} else {
+				rx++;
+			}
+			
 			if (i < this.cursor_pos) {
-				if (this.__value[i] == '\n') {
-					cx = 0;
-					cy++;
-				} else {
-					cx++;
+				cx = rx;
+				cy = ry;
+			}
+
+			if (hlb != null) {
+				if (hlb < i && i <= hle) {
+					hlgts.push({ sx: rx, sy: ry, w: 1 });
 				}
 			}
 			
@@ -183,7 +206,9 @@ class CJSTextAreaElement extends HTMLElement {
 				if (tokens[i].type == "identifier") {
 					let t = document.createElement("span");
 					if (tokens[i + 1]?.type == "whitespace" && tokens[i + 2]?.type == "identifier") {
-						t.className = "token_class";
+						t.className = "token_class_identifier";
+					} else if (tokens[i + 1]?.data == '(') {
+						t.className = "token_function_identifier";
 					} else {
 						t.className = "token_identifier";
 					}
@@ -206,6 +231,20 @@ class CJSTextAreaElement extends HTMLElement {
 			}
 		}
 
+		hlgt.replaceChildren(document.createElement("span"));
+		for (let i = 0; i < hlgts.length; i++) {
+			let h = document.createElement("div");
+			let hc = document.createElement("div");
+			
+			h.style.height = `${monospace_size.h}px`;
+			h.style.width  = `${monospace_size.w * hlgts[i].w}px`;
+			h.style.top  = `${hlgts[i].sy * monospace_size.h}px`;
+			h.style.left = `${(hlgts[i].sx - 1) * monospace_size.w}px`;
+
+			hc.appendChild(h);
+			hlgt.appendChild(hc);
+		}
+		
 		this.set_line_numbers(line_numbers);
 
 		this.lines = nlines;
@@ -278,6 +317,10 @@ class CJSTextAreaElement extends HTMLElement {
 	display: flex;
 }
 
+.input ::selection {
+	display: none
+}
+
 .linenos {
 	left: 0px;
 	position: sticky;
@@ -290,7 +333,7 @@ class CJSTextAreaElement extends HTMLElement {
 	border-right-color: #7f7f7f;
 	border-right-style: solid;
 	flex-grow: 0;
-	flex-shrink: 0;
+	flex-shrink: 0;v
 }
 
 .content {
@@ -383,7 +426,7 @@ class CJSTextAreaElement extends HTMLElement {
 	color: #faffbb;
 }
 
-.token_class {
+.token_class_identifier {
 	color: #50dda2;
 }
 `;
@@ -518,6 +561,47 @@ class CJSTextAreaElement extends HTMLElement {
 			} else {
 				return;
 			}
+
+			this.stylize();
+		});
+
+		tiarea.addEventListener("mousedown", (e) => {
+			this.cursor_mark = null;
+			this.drag_s = this.drag_e = this.cursor_pos = this.chit(e.clientX, e.clientY);
+			this.drag = 1;
+			
+			this.stylize();
+		});
+
+		tiarea.addEventListener("mousemove", (e) => {
+			
+			if (this.drag) {
+				e.preventDefault();
+			
+				this.drag_e = this.cursor_pos = this.chit(e.clientX, e.clientY);
+				
+				if (this.drag_s != this.drag_e) {
+					this.cursor_mark = this.drag_s;
+				}
+				
+				this.stylize();
+			}
+		});
+
+		tiarea.addEventListener("mouseout", (e) => {
+			if (this.drag && !(e.buttons & 1)) {
+				this.drag = 0;
+			}
+		});
+
+		tiarea.addEventListener("mousein", (e) => {
+			if (this.drag && !(e.buttons & 1)) {
+				this.drag = 0;
+			}
+		});
+		
+		tiarea.addEventListener("mouseup", (e) => {
+			this.drag = this.drag_e = this.drag_s = 0;
 
 			this.stylize();
 		});
