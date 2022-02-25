@@ -77,7 +77,7 @@ class CJSTextAreaElement extends HTMLElement {
 		let cy = 0;
 		let np = 0;
 		
-		for (let i = 0; i <= this.__value.length && !(cx == x + 1 && cy == y); i++) {
+		for (let i = 0; i <= this.__value.length && !(cx == x + 1 && cy == y) && !(cy > y); i++) {
 			if (this.__value[i] == "\n") {
 				cy++;
 				cx = 0;
@@ -190,12 +190,15 @@ class CJSTextAreaElement extends HTMLElement {
 		let line_numbers = 1;
 		for (let i = 0; i < tokens.length; i++) {
 			if (tokens[i].type == "newline") {
+				if (this.lines[line_numbers - 1] != nlines[line_numbers - 1] || this.lines[line_numbers - 1] == undefined) {
+					line.appendChild(document.createElement("br"));				
+				}
 				line_numbers++;
 			} 
 			if (this.lines[line_numbers - 1] != nlines[line_numbers - 1] || this.lines[line_numbers - 1] == undefined) {
 				if (llno != line_numbers - 1) {
 					line = document.createElement("div");
-
+	
 					if (this.linec.children[line_numbers - 1]) {
 						this.linec.children[line_numbers - 1].replaceWith(line);
 					} else {
@@ -226,7 +229,7 @@ class CJSTextAreaElement extends HTMLElement {
 					line.appendChild(t);
 				}
 				if (tokens[i+1]?.line != line_numbers - 1) {
-					line.appendChild(document.createElement("br"));
+					console.log(tokens[i+1]);
 				}
 			}
 		}
@@ -246,8 +249,12 @@ class CJSTextAreaElement extends HTMLElement {
 		}
 		
 		this.set_line_numbers(line_numbers);
-
+		
 		this.lines = nlines;
+
+		while (this.linec.childElementCount > this.lines.length) {
+			this.linec.children[this.linec.childElementCount - 1].remove();
+		}
 		
 		careti.style.left   = `${cx * monospace_size.w}px`;
 		careti.style.top    = `${cy * monospace_size.h}px`;
@@ -257,10 +264,13 @@ class CJSTextAreaElement extends HTMLElement {
 	constructor() {
 		super();
 
+		this.setAttribute("role", "textbox");
+		this.setAttribute("aria-multiline", "true");
+		
 		let shadow = this.attachShadow({ mode: "open" });
 
 		let root = document.createElement("div");
-		let style = document.createElement("style");
+		let style = document.createElement("link");
 		let main = document.createElement("div");
 		let tarea = document.createElement("div");
 		let tiarea = this.text_area = document.createElement("div");
@@ -281,155 +291,8 @@ class CJSTextAreaElement extends HTMLElement {
 		caret.className = "caret_container";
 		hl.className = "highlight_container";
 		
-		style.innerHTML = `
-:host>div {
-	--MONO_WIDTH:  ${monospace_size.w}px;
-	--MONO_HEIGHT: ${monospace_size.h}px;
-}
-
-@keyframes blinky_thing {
-	0% {
-		background-color: #b0b0b0;
-	}
-	50% {
-		background-color: #00000000;
-	}
-}
-
-.root {
-	background-color: #000000;
-	height: 100%;
-	width: 100%;
-}
-
-.main {
-	background-color #000000;
-	height: 100%;
-	width: 100%;
-	font-family: monospace;
-}
-
-.input {
-	background-color: #1f1f1f;
-	height: 100%;
-	width: 100%;
-	overflow: auto;
-	display: flex;
-}
-
-.input ::selection {
-	display: none
-}
-
-.linenos {
-	left: 0px;
-	position: sticky;
-	background-color: #000000;
-	min-height: 100%;
-	height: max-content;
-	width: 40px;
-	color: #a0a0a0;
-	border-right-width: 1px;
-	border-right-color: #7f7f7f;
-	border-right-style: solid;
-	flex-grow: 0;
-	flex-shrink: 0;v
-}
-
-.content {
-	flex-grow: 1;
-	min-height: 100%;
-	height: max-content;
-	padding-left: 2px;
-	caret-color: transparent;
-	background-color: #1f1f1f;
-}
-
-.content>div>div>span {
-	white-space: pre;
-	height: var(--MONO_HEIGHT);
-}
-
-.caret_container {
-	height: 0px;
-	width: 0px;
-	overflow: visible;
-}
-
-.caret_container>div {
-	width: 1px;
-	position: relative;
-	animation-name: blinky_thing;
-	animation-duration: 1s;
-	animation-iteration-count: infinite;
-	animation-timing-function: step-end;
-}
-
-.highlight_container {
-	height: 0px;
-	width: 0px;
-	overflow: visible;
-}
-
-.highlight_container>div {
-	height: 0px;
-	width: 0px;
-	overflow: visible;
-	background-color: #1f1f1f;
-}
-
-.highlight_container>div>div {
-	position: relative;
-	background-color: #ffffff40;
-}
-
-::-webkit-scrollbar {
-	background-color: #202020;
-}
-
-::-webkit-scrollbar {
-	background-color: #202020;
-}
-
-::-webkit-scrollbar-thumb {
-	background-color: #7f7f7f;
-}
-
-::-webkit-scrollbar-track:horizontal {
-	border-top-style: solid;
-	border-top-width: 1px;
-}
-
-::-webkit-scrollbar-track:vertical {
-	border-left-style: solid;
-	border-left-width: 1px;
-}
-
-::-webkit-scrollbar-corner {
-	background-color: #404040;
-}
-
-.token_generic {
-	color: #a0a0a0;
-/*	white-space: pre;*/
-}
-
-.token_number {
-	color: #c4ffc5;
-}
-
-.token_identifier {
-	color: #bff3ff;
-}
-
-.token_function_identifier {
-	color: #faffbb;
-}
-
-.token_class_identifier {
-	color: #50dda2;
-}
-`;
+		style.href = "./cjshl.css";
+		style.rel  = "stylesheet";
 		
 		tiarea.contentEditable = true;
 		tiarea.spellcheck = false; // inconsistent naming
@@ -539,7 +402,7 @@ class CJSTextAreaElement extends HTMLElement {
 	
 					if (this.cursor_pos) this.cursor_pos--;
 				} else if (e.code == "ArrowDown") {
-					for (let i = this.cursor_pos; this.__value[i] != '\n' && i != this.value.__length; i++) this.cursor_pos++;
+					for (let i = this.cursor_pos; this.__value[i] != '\n' && i <= this.value.__length; i++) this.cursor_pos++;
 					this.cursor_pos++;
 					for (let i = 0; this.__value[i] != '\n' && i < l && i < this.__value.length; i++) this.cursor_pos++;
 				}
@@ -566,15 +429,16 @@ class CJSTextAreaElement extends HTMLElement {
 		});
 
 		tiarea.addEventListener("mousedown", (e) => {
-			this.cursor_mark = null;
-			this.drag_s = this.drag_e = this.cursor_pos = this.chit(e.clientX, e.clientY);
-			this.drag = 1;
-			
-			this.stylize();
+			if (e.button == 0) {
+				this.cursor_mark = null;
+				this.drag_s = this.drag_e = this.cursor_pos = this.chit(e.clientX, e.clientY);
+				this.drag = 1;
+				
+				this.stylize();
+			}
 		});
 
 		tiarea.addEventListener("mousemove", (e) => {
-			
 			if (this.drag) {
 				e.preventDefault();
 			
@@ -605,6 +469,19 @@ class CJSTextAreaElement extends HTMLElement {
 
 			this.stylize();
 		});
+
+		tiarea.addEventListener("dblclick", (e) => {
+			let sp = this.chit(e.clientX, e.clientY);
+			let ep = sp;
+
+			for (; !(/[ \n\t\r;<>*()%/\-+?:=]/.test(this.__value[sp - 1])) && sp > 0; sp--) ;
+			for (; !(/[ \n\t\r;<>*()%/\-+?:=]/.test(this.__value[ep])) && ep < this.__value.length; ep++) ;
+
+			this.cursor_mark = sp;
+			this.cursor_pos  = ep;
+
+			this.stylize();
+		});
 		
 		shadow.appendChild(root);
 		root.appendChild(style);
@@ -617,6 +494,8 @@ class CJSTextAreaElement extends HTMLElement {
 		tiarea.appendChild(this.hlc);
 		tiarea.appendChild(this.linec);
 
+		this.lnos.setAttribute("aria-hidden", "true");
+		
 		this.stylize();
 	}
 }
