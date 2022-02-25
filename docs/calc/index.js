@@ -64,7 +64,8 @@ async function main() {
 	output_thing = document.getElementById("output");
 	
 	// test
-	// exec(`int a;int b;b=0;a=1;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;0?1:b;`);
+//	exec(`int a;int b;b=0;a=1;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;0?1:b;`);
+//	exec(`int a; float b; b = 1/2; a = b; a;`);
 }
 
 main();
