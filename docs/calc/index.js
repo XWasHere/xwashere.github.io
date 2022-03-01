@@ -54,10 +54,14 @@ function exec(src) {
 async function main() {
 	await Promise.all([
 		(async () => {
-			cjs   = await import("./calc.js");
+			cjs = await import("./calc.js");
 		})(),
 		(async () => {
-			cjshl = await import("./cjshl.js");
+			try {
+				cjshl = await import("./cjshl.js");
+			} catch (troll) {
+				cjshl = await import("./cjshl_fallback.js");
+			}
 		})()
 	]);
 	
