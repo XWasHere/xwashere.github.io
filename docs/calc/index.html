@@ -19,20 +19,24 @@
 		<link rel="stylesheet" href="./calc.css"></link> 
 	</head>
 	<body>
-		<div class="root">
-			<div class="input panel">
-				<a>source</a>
+		<main>
+			<section class="input panel">
+				<header>
+					<span>source</span>
+				</header>
 				<div>
-					<cjs-textarea class="src" id="src"></cjs-textarea>
+					<cjs-textarea class="src" id="src" aria-label="source"></cjs-textarea>
 				</div>
-			</div>
-			<div class="output panel">
-				<a>stdout</a>
+			</section>
+			<section class="output panel">
+				<header>
+					<span>stdout</span>
+				</header>
 				<div>
 					<div class="stdout" id="output"></div>
 				</div>
-			</div>
-		</div>
+			</section>
+		</main>
 		<script src="./index.js"></script>
 	</body>
 </html>
