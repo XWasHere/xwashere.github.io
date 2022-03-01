@@ -52,10 +52,15 @@ function exec(src) {
 }
 
 async function main() {
-	cjs   = await import("./calc.js");
-	cjshl = await import("./cjshl.js");
-
-	console.log(cjs);
+	await Promise.all([
+		(async () => {
+			cjs   = await import("./calc.js");
+		})(),
+		(async () => {
+			cjshl = await import("./cjshl.js");
+		})()
+	]);
+	
 	input_thing = document.getElementById("src");
 	input_thing.addEventListener("input", () => {
 		output_thing.textContent = exec(input_thing.value);
