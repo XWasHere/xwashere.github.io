@@ -23,7 +23,7 @@ export class CJSType {
 	is_primitave = false;
 	tr;
 	
-	casts = { t: {}, f: {} };
+//	casts = { t: {}, f: {} };
 	ops   = {};
 	
 	constructor() {
@@ -99,7 +99,6 @@ export class CJSBoundFunction {
 		let nargs = [];
 
 		args.forEach((a, i) => {
-			console.log(a.type.tr, this.args[i].tr);
 			if (a.type.tr != this.args[i].tr) {
 				let v;
 				if (v = a.type.ops[this.args[i].tr].call([a])) {
@@ -111,8 +110,6 @@ export class CJSBoundFunction {
 				nargs.push(a)
 			}
 		})
-
-		console.log(nargs)
 		
 		return this.handler(...nargs);
 	}
@@ -791,103 +788,104 @@ export class CJSInterpreter {
 	exec_op(c, a, o, b) {
 		let canidates = [];
 		
-		console.group(`resolve ${a.type.tr.description} ${o} ${b.type.tr.description}`);
-		console.group(`find canidates`);
-		console.group(`search members of`, a.type);
+//		console.group(`resolve ${a.type.tr.description} ${o} ${b.type.tr.description}`);
+//		console.group(`find canidates`);
+//		console.group(`search members of`, a.type);
 		if (a.type.ops[o]) {
 			let k = Object.getOwnPropertySymbols(a.type.ops[o]);
 			for (let i = 0; i < k.length; i++) {
 				let c = a.type.ops[o][k[i]];
 				canidates.push(c);
-				console.log(`canidate`, c);
+//				console.log(`canidate`, c);
 			}
 		}
-		console.groupEnd();
-		console.groupEnd();
-		console.group(`prune non-viable from`, canidates);
+//		console.groupEnd();
+//		console.groupEnd();
+//		console.group(`prune non-viable from`, canidates);
 		for (let i = 0; i < canidates.length; i++) {
-			console.group(`check`, canidates[i]);
+//			console.group(`check`, canidates[i]);
 			do {
 				let f = canidates[i];
 				if (f.args.length != 2) {
-					console.log(`argument count mismatch ${f.args.length} != 2`);
-					console.log(`drop`, f);
+//					console.log(`argument count mismatch ${f.args.length} != 2`);
+//					console.log(`drop`, f);
 					canidates.splice(i, 1);
 					break;
 				}
 				if (f.args[1].tr != b.type.tr) {
-					console.group(`find implicit conversion for argument 1 `, b.type, `->`, f.args[1]);
+//					console.group(`find implicit conversion for argument 1 `, b.type, `->`, f.args[1]);
 					if (!b.type.ops[f.args[1].tr]) {
-						console.log(`cast to`, f.args[1], `not found`);
-						console.log(`drop`, f);
+//						console.log(`cast to`, f.args[1], `not found`);
+//						console.log(`drop`, f);
 						canidates.splice(i, 1);
 						break;
 					}
-					console.log(`found`, b.type.ops[f.args[1].tr])
-					console.groupEnd();
+//					console.log(`found`, b.type.ops[f.args[1].tr])
+//					console.groupEnd();
 				}
-				console.log(`keep`, f)
+//				console.log(`keep`, f)
 			} while (false);
-			console.groupEnd();
+//			console.groupEnd();
 		}
-		console.groupEnd();
-		console.group(`select best canidate from`, canidates)
+//		console.groupEnd();
+//		console.group(`select best canidate from`, canidates)
 		let best  = null;
 		for (let i = 0; i < canidates.length; i++) {
-			console.group(`compare`, best, canidates[i]);
+//			console.group(`compare`, best, canidates[i]);
 			do {
 				if (best == null) {
-					console.log(`no best,`, canidates[i], `is automatically better`);
+//					console.log(`no best,`, canidates[i], `is automatically better`);
 					best = canidates[i];
 				} else {
-					console.group(`compare`, a, b);
+//					console.group(`compare`, a, b);
 					let bt, o, n = o = bt = 0;
 					if (b.type.tr == best.args[1].tr) {
-						console.log(`best - no conversion, exact match`)
+//						console.log(`best - no conversion, exact match`)
 						o = 3;
 					} else {
-						console.log(`best - non-standard`)
+//						console.log(`best - non-standard`)
 						o = 0;
 					}
 					if (b.type.tr == canidates[i].args[1].tr) {
-						console.log(`this - no conversion, exact match`);
+//						console.log(`this - no conversion, exact match`);
 						n = 3;
 					} else {
-						console.log(`this - non-standard`);
+//						console.log(`this - non-standard`);
 						n = 0;
 					}
 					do {
 						if (n > 0) {
 							if (b == 0) {
-								console.log("this ranked higher than best");
+//								console.log("this ranked higher than best");
 								bt = 1;
 								break;
 							}
 						}
 						if (n > 0 && b > 0) {
 							if (n > b) {
-								console.log("this ranked higher than best");
+//								console.log("this ranked higher than best");
 								bt = 1;
 								break;
 							}
 						}
 					} while (false);
 					if (bt) {
-						console.log(`new best is`, best = canidates[i]);
+						best = canidates[i]
+//						console.log(`new best is`, best);
 					} else {
-						console.log(canidates[i], `worse than`, best);	
+//						console.log(canidates[i], `worse than`, best);	
 					}
-					console.groupEnd();
+//					console.groupEnd();
 				}
 			} while (false);
-			console.groupEnd();
+//			console.groupEnd();
 		}
 		
-		console.groupEnd();
+//		console.groupEnd();
 		if (!best) {
 			this.trap("type error");
 		}
-		console.groupEnd();
+//		console.groupEnd();
 
 		return best.call([a, b]);
 	}
@@ -1073,14 +1071,6 @@ export class CJSInterpreter {
 				})
 			}
 		}
-
-		int_t.casts = {
-
-		};
-
-		float_t.casts = {
-			
-		};
 		
 		globals.types["int"]   = int_t;
 		globals.types["float"] = float_t;
