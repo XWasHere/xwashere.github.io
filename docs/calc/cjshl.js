@@ -13,19 +13,27 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-(()=>{
-	let a = document.createElement("span");
-	a.style.fontFamily = "monospace";
-	a.textContent = "a";
-	document.body.appendChild(a);
+let ss, monospace_size;
+
+await Promise.all([
+	(async () => {
+		let im = await import("./cjshl.css",{assert: {type:"css"}});
+		ss = im.default;
+	})(),
+	(async ()=>{
+		let a = document.createElement("span");
+		a.style.fontFamily = "monospace";
+		a.textContent = "a";
+		document.body.appendChild(a);
+		
+		let b = a.getBoundingClientRect();
+		monospace_size = {h: b.height, w: b.width};
 	
-	let b = a.getBoundingClientRect();
-	globalThis.monospace_size = {h: b.height, w: b.width};
+		a.remove();
+	})()
+]);
 
-	a.remove();
-})();
-
-class CJSTextAreaElement extends HTMLElement {
+export class CJSTextAreaElement extends HTMLElement {
 	__value = "";
 	
 	input;
@@ -269,8 +277,9 @@ class CJSTextAreaElement extends HTMLElement {
 		
 		let shadow = this.attachShadow({ mode: "open" });
 
+		shadow.adoptedStyleSheets = [ss];
+		
 		let root = document.createElement("div");
-		let style = document.createElement("link");
 		let main = document.createElement("div");
 		let tarea = document.createElement("div");
 		let tiarea = this.text_area = document.createElement("div");
@@ -290,9 +299,6 @@ class CJSTextAreaElement extends HTMLElement {
 		lnos.className = "linenos";
 		caret.className = "caret_container";
 		hl.className = "highlight_container";
-		
-		style.href = "./cjshl.css";
-		style.rel  = "stylesheet";
 		
 		tiarea.contentEditable = true;
 		tiarea.spellcheck = false; // inconsistent naming
@@ -484,7 +490,6 @@ class CJSTextAreaElement extends HTMLElement {
 		});
 		
 		shadow.appendChild(root);
-		root.appendChild(style);
 		root.appendChild(main);
 		main.appendChild(tarea);
 		tarea.appendChild(this.lnos);
