@@ -44,7 +44,6 @@
 				margin: 4px;
 			}
 
-			
 			::marker {
 				content: "";
 			}
@@ -69,14 +68,14 @@
 				margin: 0px;
 			}
 
-			html, body, .not_bg, .bg, .bg iframe {
+			html, body, .not_bg, .bg, .bg canvas {
 				margin: 0px;
 				height: 100%;
 				width: 100%;
 			}
 
-			.bg iframe {
-				border: 0px;
+			.bg canvas {
+				border:  0px;
 			}
 
 			.bg {
@@ -97,7 +96,7 @@
 	</head>
 	<body>
 		<section class="bg">
-			<iframe src="./thing/index.html"></iframe>
+			<canvas id="bg_viewport"></canvas>
 		</section>
 		<div class="not_bg">
 			<main>
@@ -145,5 +144,6 @@
 			</footer>
 			<div style="height: 100%"></div>
 		</div>
+		<script src="./index.js"></script>
 	</body>
 </html>
