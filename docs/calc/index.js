@@ -13,7 +13,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-var cjs, cjshl;
+var cjs, cjshl, menu;
 
 function parse(e) {
 	let p = new cjs.CJSParser(e);
@@ -52,7 +52,13 @@ function exec(src) {
 }
 
 async function main() {
+	let autoexec = document.getElementById("cfg_auto_exec");
+	let execbutton = document.getElementById("exec_button");
+	
 	await Promise.all([
+		(async () => {
+			menu = await import("./menu.js");
+		})(),
 		(async () => {
 			cjs = await import("./calc.js");
 		})(),
@@ -60,6 +66,7 @@ async function main() {
 			try {
 				cjshl = await import("./cjshl.js");
 			} catch (troll) {
+				console.error(troll);
 				cjshl = await import("./cjshl_fallback.js");
 			}
 		})()
@@ -67,10 +74,16 @@ async function main() {
 	
 	input_thing = document.getElementById("src");
 	input_thing.addEventListener("input", () => {
-		output_thing.textContent = exec(input_thing.value);
+		if (autoexec.value) {
+			output_thing.textContent = exec(input_thing.value);
+		}
 	});
-	
+
 	output_thing = document.getElementById("output");
+
+	execbutton.addEventListener("click", () => {
+		output_thing.textContent = exec(input_thing.value);
+	})
 	
 	// test
 //	exec(`int a;int b;b=0;a=1;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;0?1:b;`);
