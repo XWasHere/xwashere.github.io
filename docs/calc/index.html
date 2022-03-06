@@ -16,9 +16,15 @@
 <html lang="en-US">
 	<head>
 		<title>calc.js</title>
-		<link rel="stylesheet" href="./calc.css"></link> 
+		<link rel="stylesheet" href="./calc.css"></link>
 	</head>
 	<body>
+		<xu-menu type="toolbar">
+			<xu-submenu name="config" open="true">
+				<xu-menuitem type="toggle" id="cfg_auto_exec">auto exec</xu-menuitem>
+			</xu-submenu>
+			<xu-menuitem type="button" id="exec_button">exec</xu-menuitem>
+		</xu-menu>
 		<main>
 			<section class="input panel">
 				<header>
