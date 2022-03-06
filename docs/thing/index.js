@@ -17,7 +17,9 @@
 class NetEngineThing {
   viewport;
   context;
-
+  
+  dragged;
+  
   height = 100;
   width  = 100;
 
@@ -47,6 +49,42 @@ class NetEngineThing {
     this.debug  = args?.debug  || this.debug;
     this.walls  = args?.walls  || this.walls;
     this.palete = args?.palete || this.palete;
+
+    this.viewport.addEventListener("mousedown", (e) => {
+      if (e.buttons & 1) {
+        for (let i = 0; i < this.nodes.length; i++) {
+          let node = this.nodes[i];
+
+          if (Math.hypot(e.x - node.x, e.y - node.y) <= 1 + node.r) {
+            node.x = e.x;
+            node.y = e.y;
+            node.s = 1;
+            
+            this.dragged = node;
+          }
+        }
+      }
+    });
+
+    this.viewport.addEventListener("mousemove", (e) => {
+      if (this.dragged) {
+        if (e.buttons & 1) {
+          this.dragged.x = e.x;
+          this.dragged.y = e.y;
+        } else {
+          this.dragged.s = 0;
+          this.dragged = undefined;
+        }
+      }
+    })
+    this.viewport.addEventListener("mouseup", (e) => {
+      if (!(e.buttons & 1)) {
+        if (this.dragged) {
+          this.dragged.s = 0;
+          this.dragged = undefined;
+        }
+      }
+    })
   }
 
   phys() {
@@ -77,11 +115,14 @@ class NetEngineThing {
           tl  = (tl - ln.nl) / tl * 0.001 * ln.st;
           tx *= tl;
           ty *= tl;
-      n2. vx -= tx;
-      n2. vy -= ty;
-      n1. vx += tx; 
-      n1. vy += ty;
-
+      if (!n2.s) {
+        n2.vx -= tx;
+        n2.vy -= ty;
+      }
+      if (!n1.s) {
+        n1. vx += tx; 
+        n1. vy += ty;
+      }
     }
 
     for (let i = 0; i < this.nodes.length; i++) {
@@ -240,7 +281,7 @@ class NetEngineThing {
       });
     }
   }
-
+  
   static css_hex(v) { return `#${v.toString(16).padStart(6, '0')}`; }
 }
 
@@ -279,6 +320,7 @@ for (let i = 0; i < 100; i++) {
     gx:    0,
     gy:    0,
     b:     0,
+    s:     0,
     x:     Math.random() * eng.width,
     y:     Math.random() * eng.height,
     r:     10,
