@@ -15,16 +15,19 @@
 
 let ss, monospace_size;
 
+const { require } = await import("./loader.js");
+
 await Promise.all([
 	(async () => {
-		let im = await import("./cjshl.css",{assert: {type:"css"}});
+		let im = await require("./cjshl.css",{assert: {type:"css"}});
+		console.log(im);
 		ss = im.default;
 	})(),
 	(async ()=>{
 		let a = document.createElement("span");
 		a.style.fontFamily = "monospace";
 		a.textContent = "a";
-		document.body.appendChild(a);
+		document.body.parentNode.appendChild(a);
 		
 		let b = a.getBoundingClientRect();
 		monospace_size = {h: b.height, w: b.width};
@@ -32,6 +35,8 @@ await Promise.all([
 		a.remove();
 	})()
 ]);
+
+console.log(monospace_size);
 
 export class CJSTextAreaElement extends HTMLElement {
 	__value = "";
