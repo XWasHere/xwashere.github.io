@@ -242,7 +242,7 @@ export class CJSTextAreaElement extends HTMLElement {
 					line.appendChild(t);
 				}
 				if (tokens[i+1]?.line != line_numbers - 1) {
-					console.log(tokens[i+1]);
+					// console.log(tokens[i+1]);
 				}
 			}
 		}
@@ -273,6 +273,23 @@ export class CJSTextAreaElement extends HTMLElement {
 		careti.style.top    = `${cy * monospace_size.h}px`;
 		careti.style.height = `${monospace_size.h}px`;
 	}
+
+	cscroll() {
+		let fvl = Math.ceil(this.scroll_thing.scrollTop / monospace_size.h);
+		let lvl = Math.floor((this.scroll_thing.scrollTop + this.scroll_thing.clientHeight) / monospace_size.h) - 1;
+
+		let cl = 0;
+
+		for (let i = 0; i < this.cursor_pos; i++) {
+			if (this.__value[i] == '\n') cl++;
+		}
+
+		if (fvl > cl) {
+			this.scroll_thing.scrollTop = cl * monospace_size.h;
+		} else if (lvl < cl) {
+			this.scroll_thing.scrollTop = (cl + 1) * monospace_size.h - this.scroll_thing.clientHeight;
+		}
+	}
 	
 	constructor() {
 		super();
@@ -286,7 +303,7 @@ export class CJSTextAreaElement extends HTMLElement {
 		
 		let root = document.createElement("div");
 		let main = document.createElement("div");
-		let tarea = document.createElement("div");
+		let tarea = this.scroll_thing = document.createElement("div");
 		let tiarea = this.text_area = document.createElement("div");
 		let tiareac = document.createElement("div");
 		let lines = this.linec = document.createElement("div");
@@ -347,6 +364,14 @@ export class CJSTextAreaElement extends HTMLElement {
 						this.__value = `${this.__value.slice(0, this.cursor_pos - 1)}${this.__value.slice(this.cursor_pos)}`;
 						this.cursor_pos--;
 					}
+				} else if (e.inputType == "deleteContentForward") {
+					if (this.cursor_pos < this.value.length) {
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}${this.__value.slice(this.cursor_pos + 1)}`;
+					}
+				} else if (e.inputType == "deleteWordBackward") {
+					// TODO(xwashere): this and thing below
+				} else if (e.inputType == "deleteWordForward") {
+					
 				} else if (e.inputType == "insertFromPaste") {
 					if (e.dataTransfer.types.includes("text/plain")) {
 						for (let i = 0; i < e.dataTransfer.items.length; i++) {
@@ -368,14 +393,18 @@ export class CJSTextAreaElement extends HTMLElement {
 			}
 			
 			this.stylize();
-
+			this.cscroll();
+			
 			// i dont actually know how to set up events and i cant access mdn on this device so this will have to do
 			let di = new InputEvent("input");
 			this.dispatchEvent(di)
 		});
 
 		tiarea.addEventListener("keydown", (e) => {
-			if (/Arrow(Right|Left|Up|Down)/.test(e.code)) {
+			if (/Arrow(Right|Left|Up|Down)|Page(Up|Down)/.test(e.code)) {
+				// otherwise the browser and textbox will fight over scrolling
+				e.preventDefault();
+				
 				if (e.shiftKey) {
 					if (this.cursor_mark == null) {
 						this.cursor_mark = this.cursor_pos;
@@ -407,13 +436,14 @@ export class CJSTextAreaElement extends HTMLElement {
 						this.cursor_pos++;
 						if (this.__value[this.cursor_pos] == '\n') {
 							this.stylize();
+							this.cscroll();
 							return;
 						}
 					}
 	
 					if (this.cursor_pos) this.cursor_pos--;
 				} else if (e.code == "ArrowDown") {
-					for (let i = this.cursor_pos; this.__value[i] != '\n' && i <= this.value.__length; i++) this.cursor_pos++;
+					for (let i = this.cursor_pos; this.__value[i] != '\n' && i <= this.__value.length; i++) this.cursor_pos++;
 					this.cursor_pos++;
 					for (let i = 0; this.__value[i] != '\n' && i < l && i < this.__value.length; i++) this.cursor_pos++;
 				}
@@ -437,6 +467,7 @@ export class CJSTextAreaElement extends HTMLElement {
 			}
 
 			this.stylize();
+			this.cscroll();
 		});
 
 		tiarea.addEventListener("mousedown", (e) => {
