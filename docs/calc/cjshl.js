@@ -13,1646 +13,585 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-var calc_root;
-var input_container;
-var input_thing;
-var output_container;
-var output_thing;
+let ss, monospace_size;
 
-const OVERLOAD_OP = 1;
+const { require } = await import("./loader.js");
 
-function mangle(args) {
-	let m = args.name;
-	return m;
-}
-
-export class CJSType {
-	is_primitave = false;
-	tr;
+await Promise.all([
+	(async () => {
+		let im = await require("./cjshl.css",{assert: {type:"css"}});
+		console.log(im);
+		ss = im.default;
+	})(),
+	(async ()=>{
+		let a = document.createElement("span");
+		a.style.fontFamily = "monospace";
+		a.textContent = "a";
+		document.body.parentNode.appendChild(a);
+		
+		let b = a.getBoundingClientRect();
+		monospace_size = {h: b.height, w: b.width};
 	
-//	casts = { t: {}, f: {} };
-	methods = {};
+		a.remove();
+	})()
+]);
+
+console.log(monospace_size);
+
+export class CJSTextAreaElement extends HTMLElement {
+	__value = "";
+	
+	input;
+	linec;
+	caretc;
+	hlc;
+
+	drag;
+	drag_s;
+	drag_e;
+
+	lbstack = [];
+	
+	lnos;
+	lines = [];
+	cursor_pos = 0;
+	cursor_mark = null;
+
+	get value() {
+		return this.__value;
+	}
+
+	set value(x) {
+		this.__value = x;
+		this.stylize();
+	}
+
+	set_line_numbers(n) {
+		if (this.lnos.childElementCount < n) {
+			while (this.lnos.childElementCount < n) {
+				let lno = document.createElement("div");
+				lno.textContent = this.lnos.childElementCount + 1;
+				this.lnos.appendChild(lno);
+			}
+		} else if (this.lnos.childElementCount > n) {
+			while (this.lnos.childElementCount > n) {
+				if (this.lnos.childElementCount > 0) {
+					this.lnos.children[this.lnos.childElementCount - 1].remove();
+				}
+			}
+		}
+	}
+
+	chit(sx, sy) {
+		let br = this.text_area.getBoundingClientRect();
+		
+		let x = Math.floor((sx - br.x) / monospace_size.w);
+		let y = Math.floor((sy - br.y) / monospace_size.h);
+		
+		let cx = 0;
+		let cy = 0;
+		let np = 0;
+		
+		for (let i = 0; i <= this.__value.length && !(cx == x + 1 && cy == y) && !(cy > y); i++) {
+			if (this.__value[i] == "\n") {
+				cy++;
+				cx = 0;
+			} else {
+				cx++;
+			}
+			np = i;
+		}
+
+		return np;
+	}
+	
+	stylize() {
+		let caret  = this.caretc; //document.createElement("div");
+		let careti = this.caretr;
+		let line   = document.createElement("div");
+		let token  = document.createElement("span");
+		let hlgt   = this.hlc;
+		let nlines = [];
+		
+		caret.className = "caret_container";
+		hlgt.className  = "highlight_container";
+		token.className = "token_generic";
+		
+		let cx = 0;
+		let cy = 0;
+
+		let tokens = [];
+		let ct = { type: "generic", data: "", line: 0 }
+		let ldta = "";
+
+		let hlgts = [];
+		let hlb, hle;
+		let hpb, hpe;
+		if (this.cursor_mark != null) {
+			if (this.cursor_mark < this.cursor_pos) {
+				hlb = this.cursor_mark - 1;
+				hle = this.cursor_pos - 1;
+			} else {
+				hlb = this.cursor_pos - 1;
+				hle = this.cursor_mark - 1;
+			}
+		}
+
+		let rx = 0, ry = 0;
+		for (let i = 0; i < this.__value.length; i++) {
+			ldta += this.__value[i];
+			
+			if (this.__value[i] == '\n') {
+				rx = 0;
+				ry++;
+			} else if (this.__value[i] == '\t') {
+				rx += 4;
+			} else {
+				rx++;
+			}
+			
+			if (i < this.cursor_pos) {
+				cx = rx;
+				cy = ry;
+			}
+
+			if (hlb != null) {
+				if (hlb < i && i <= hle) {
+					hlgts.push({ sx: rx, sy: ry, w: 1 });
+				}
+			}
+			
+			if (/[ \t\r]/.test(this.__value[i])) {
+				let d;
+				
+				if (this.value[i] == '\t') d = "    ";
+				else                       d = this.__value[i];
+				
+				if (ct.type == "whitespace") {
+					ct.data += d;
+				} else {
+					tokens.push(ct);
+					ct = { type: "whitespace", data: d, line: cy };
+				}
+			} else if (/\n/.test(this.value[i])) {
+				tokens.push(ct);
+				tokens.push({type: "newline", data: "", line: cy});
+				ct = {type: "generic", data: "", line: cy};
+				nlines.push(ldta);
+				ldta = "";
+			} else if (/[;+-/*()?:<>%=]/.test(this.__value[i])) {
+				tokens.push(ct);
+				tokens.push({type: "generic", data: this.__value[i], line: cy});
+				ct = { type: "generic", data: "", line: cy };
+			} else if (/[0123456789]/.test(this.__value[i]) && ct.type != "identifier") {
+				if (ct.type == "number") {
+					ct.data += this.__value[i];
+				} else {
+					tokens.push(ct);
+					ct = { type: "number", data: this.__value[i], line: cy };
+				}
+			} else if (/\p{ID_Start}/u.test(this.__value[i]) && ct.type != "identifier") {
+				tokens.push(ct);
+				ct = { type: "identifier", data: this.__value[i], line: cy };
+			} else if (/\p{ID_Continue}/u.test(this.__value[i]) && ct.type == "identifier") {
+				ct.data += this.__value[i];
+			} else {
+				if (ct.type == "generic") {
+					ct.data += this.__value[i];
+				} else {
+					tokens.push(ct);
+					ct = { type: "generic", data: this.__value[i], line: cy };
+				}
+			}
+		}
+		
+		nlines.push(ldta);
+		tokens.push(ct);
+
+		let llno = -1;
+		let line_numbers = 1;
+		for (let i = 0; i < tokens.length; i++) {
+			if (tokens[i].type == "newline") {
+				if (this.lines[line_numbers - 1] != nlines[line_numbers - 1] || this.lines[line_numbers - 1] == undefined) {
+					line.appendChild(document.createElement("br"));				
+				}
+				line_numbers++;
+			} 
+			if (this.lines[line_numbers - 1] != nlines[line_numbers - 1] || this.lines[line_numbers - 1] == undefined) {
+				if (llno != line_numbers - 1) {
+					line = document.createElement("div");
+	
+					if (this.linec.children[line_numbers - 1]) {
+						this.linec.children[line_numbers - 1].replaceWith(line);
+					} else {
+						this.linec.appendChild(line);
+					}
+				}
+				llno = line_numbers - 1;
+				if (tokens[i].type == "identifier") {
+					let t = document.createElement("span");
+					if (tokens[i].data == "if" || 
+						tokens[i].data == "else") {
+						tokens[i].type = "keyword";
+						t.className = "token_keyword";
+					} else if (tokens[i + 1]?.type == "whitespace" && tokens[i + 2]?.type == "identifier") {
+						t.className = "token_class_identifier";
+					} else if (tokens[i + 1]?.data == '(') {
+						t.className = "token_function_identifier";
+					} else {
+						t.className = "token_identifier";
+					}
+					t.textContent = tokens[i].data;
+					line.appendChild(t);
+				} else if (tokens[i].type == "number") {
+					let t = document.createElement("span");
+					t.className = "token_number";
+					t.textContent = tokens[i].data;
+					line.appendChild(t);
+				} else {
+					let t = document.createElement("span");
+					t.className = "token_generic";
+					t.textContent = tokens[i].data;
+					line.appendChild(t);
+				}
+				if (tokens[i+1]?.line != line_numbers - 1) {
+					// console.log(tokens[i+1]);
+				}
+			}
+		}
+
+		hlgt.replaceChildren(document.createElement("span"));
+		for (let i = 0; i < hlgts.length; i++) {
+			let h = document.createElement("div");
+			let hc = document.createElement("div");
+			
+			h.style.height = `${monospace_size.h}px`;
+			h.style.width  = `${monospace_size.w * hlgts[i].w}px`;
+			h.style.top  = `${hlgts[i].sy * monospace_size.h}px`;
+			h.style.left = `${(hlgts[i].sx - 1) * monospace_size.w}px`;
+
+			hc.appendChild(h);
+			hlgt.appendChild(hc);
+		}
+		
+		this.set_line_numbers(line_numbers);
+		
+		this.lines = nlines;
+
+		while (this.linec.childElementCount > this.lines.length) {
+			this.linec.children[this.linec.childElementCount - 1].remove();
+		}
+		
+		careti.style.left   = `${cx * monospace_size.w}px`;
+		careti.style.top    = `${cy * monospace_size.h}px`;
+		careti.style.height = `${monospace_size.h}px`;
+	}
+
+	cscroll() {
+		let fvl = Math.ceil(this.scroll_thing.scrollTop / monospace_size.h);
+		let lvl = Math.floor((this.scroll_thing.scrollTop + this.scroll_thing.clientHeight) / monospace_size.h) - 1;
+
+		let cl = 0;
+
+		for (let i = 0; i < this.cursor_pos; i++) {
+			if (this.__value[i] == '\n') cl++;
+		}
+
+		if (fvl > cl) {
+			this.scroll_thing.scrollTop = cl * monospace_size.h;
+		} else if (lvl < cl) {
+			this.scroll_thing.scrollTop = (cl + 1) * monospace_size.h - this.scroll_thing.clientHeight;
+		}
+	}
 	
 	constructor() {
+		super();
+
+		this.setAttribute("role", "textbox");
+		this.setAttribute("aria-multiline", "true");
 		
-	}
+		let shadow = this.attachShadow({ mode: "open" });
 
-	cast(x) {
-		if (x.type.ops[this.type.tr]) {
-			return x.type.ops[this.type.tr].call([x]);
-		}
-	}
+		shadow.adoptedStyleSheets = [ss];
+		
+		let root = document.createElement("div");
+		let main = document.createElement("div");
+		let tarea = this.scroll_thing = document.createElement("div");
+		let tiarea = this.text_area = document.createElement("div");
+		let tiareac = document.createElement("div");
+		let lines = this.linec = document.createElement("div");
+		let caret = this.caretc = document.createElement("div");
+		let caretr = this.caretr = document.createElement("div");
+		let hl = this.hlc = document.createElement("div");
+		let trarea = document.createElement("textarea");
+		let lnos = this.lnos = document.createElement("div");
+		
+		root.className = "root";
+		main.className = "main";
+		tarea.className = "input";
+		tiarea.className = "content";
+		tiareac.className = "content_container";
+		lnos.className = "linenos";
+		caret.className = "caret_container";
+		hl.className = "highlight_container";
+		
+		tiarea.contentEditable = true;
+		tiarea.spellcheck = false; // inconsistent naming
+		
+		tiarea.addEventListener("beforeinput", (e) => {
+			e.preventDefault();
 
-	bind_method(n, f) {
-		if (!this.methods[n]) {
-			this.methods[n] = [];
-		}
+			let thing = 1;
+			
+			if (/insert(Text|Paragraph|FromPaste)|deleteContent(Backward|Forward)/.test(e.inputType)) {
+				if (this.cursor_mark != null) {
+					let a, b;
 
-		this.methods[n].push(f);
-	}
-	
-	exec_op(x, o, y) {
-		let op = this.ops[o];
+					if (this.cursor_mark < this.cursor_pos) {
+						a = this.cursor_mark;
+						b = this.cursor_pos;
+					} else {
+						a = this.cursor_pos;
+						b = this.cursor_mark;
+					}
+					
+					this.__value = `${this.__value.slice(0, a)}${this.__value.slice(b)}`;
+					this.cursor_pos = a;
+					this.cursor_mark = null;
 
-		if (op) {
-			let o1 = op[x.type.tr];
-			if (o1) {
-				let o2 = o1[y.type.tr];
-				if (o2) {
-					return o2.call([x, y]);
+					if (/deleteContent(Backward|Forward)/.test(e.inputType)) {
+						thing = 0;
+					}
 				}
 			}
-		}
-	}
 
-	static exec_op(x, o, y) {
-		let r;
-
-		if (r = x.type.exec_op(x, o, y)) {
-			return r;
-		} else if (r = y.type.exec_op(x, o, y)) {
-			return r;
-		} else {
-			let cy = x.type.cast(y)
-			if (cy) {
-				if (r = x.type.exec_op(x, o, cy)) {
-					return r;
+			if (thing) {
+				if (e.inputType == "insertText") {
+					if (e.data == '(') {
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}()${this.__value.slice(this.cursor_pos)}`;
+						this.cursor_pos++;
+						this.lbstack.push(")");
+					} else if (e.data == '{') {
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}{}${this.__value.slice(this.cursor_pos)}`;
+						this.cursor_pos++;
+						this.lbstack.push("}");
+					} else if (e.data == ')' || e.data == '}') {
+						if (this.lbstack[this.lbstack.length - 1] == e.data) {
+							this.lbstack.pop();
+						} else {
+							this.__value = `${this.__value.slice(0, this.cursor_pos)}${e.data}${this.__value.slice(this.cursor_pos)}`;
+						}
+						this.cursor_pos++;
+					} else {
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}${e.data}${this.__value.slice(this.cursor_pos)}`;
+						this.cursor_pos++;
+					}
+				} else if (e.inputType == "insertParagraph") {
+					let sc = 0, tc = 0;
+					for (let i = this.cursor_pos; this.__value[i] != '\n' && i > 0; i--) sc = i;
+					for (let i = sc; this.__value[i] == '\t' && i < this.__value.length; i++) tc++;
+					if (this.__value[this.cursor_pos - 1] == '(' && this.__value[this.cursor_pos] == ')' || this.__value[this.cursor_pos - 1] == '{' && this.value[this.cursor_pos] == '}') {
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}\n${"".padStart(tc + 1, "\t")}\n${"".padStart(tc, "\t")}${this.__value.slice(this.cursor_pos)}`;
+						this.cursor_pos += 2 + tc;
+					} else {
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}\n${"".padStart(tc, "\t")}${this.__value.slice(this.cursor_pos)}`;
+						this.cursor_pos += 1 + tc;
+					}
+					
+					this.lbstack = []
+				} else if (e.inputType == "deleteContentBackward") {
+					if (this.cursor_pos != 0) {
+						if (this.__value[this.cursor_pos - 1] == '\n') this.lbstack = [];
+						this.__value = `${this.__value.slice(0, this.cursor_pos - 1)}${this.__value.slice(this.cursor_pos)}`;
+						this.cursor_pos--;
+					}
+				} else if (e.inputType == "deleteContentForward") {
+					if (this.cursor_pos < this.value.length) {
+						if (this.__value[this.cursor_pos] == this.lbstack[this.lbstack.length - 1]) this.lbstack.pop();
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}${this.__value.slice(this.cursor_pos + 1)}`;
+					}
+				} else if (e.inputType == "deleteWordBackward") {
+					// TODO(xwashere): this and thing below
+				} else if (e.inputType == "deleteWordForward") {
+					
+				} else if (e.inputType == "insertFromPaste") {
+					if (e.dataTransfer.types.includes("text/plain")) {
+						for (let i = 0; i < e.dataTransfer.items.length; i++) {
+							if (e.dataTransfer.items[i].type == "text/plain") {
+								e.dataTransfer.items[i].getAsString((data) => {
+									data = data.replaceAll("\r\n", "\n");
+									this.__value = `${this.__value.slice(0, this.cursor_pos)}${data}${this.__value.slice(this.cursor_pos)}`;
+									this.cursor_pos += data.length;
+									this.stylize();
+									let di = new InputEvent("input");
+									this.dispatchEvent(di)
+								})
+								
+								return;
+							}
+						}
+					}
 				}
 			}
 			
-			let cx = y.type.cast(x);
-			if (cx) {
-				if (r = y.type.exec_op(cx, o, y)) {
-					return r;
-				}
-			}
-		}
-	}
-}
+			this.stylize();
+			this.cscroll();
+			
+			// i dont actually know how to set up events and i cant access mdn on this device so this will have to do
+			let di = new InputEvent("input");
+			this.dispatchEvent(di)
+		});
 
-export class CJSValue {
-	type;
-	value;
-}
-
-export class CJSBoundFunction {
-	args;
-	retv;
-	handler;
-	
-	static bind(a, r, h) {
-		let f = new CJSBoundFunction();
-
-		f.args = a;
-		f.retv = r;
-		f.handler = h;
-
-		return f;
-	}
-	
-	call(args) {
-		let nargs = [];
-
-		args.forEach((a, i) => {
-			if (a.type.tr != this.args[i].tr) {
-				let v;
+		tiarea.addEventListener("keydown", (e) => {
+			if (/Arrow(Right|Left|Up|Down)|Page(Up|Down)/.test(e.code)) {
+				// otherwise the browser and textbox will fight over scrolling
+				e.preventDefault();
 				
-				let m = a.type.methods["operatorcast"];
-
-				for (let i = 0; i < m.length; i++) {
-					if (m[i].retv.tr == this.args[i].tr) {
-						v = m[i].call([a]);
-						break;
+				if (e.shiftKey) {
+					if (this.cursor_mark == null) {
+						this.cursor_mark = this.cursor_pos;
 					}
-				}
-
-				if (v) {
-					nargs.push(v);
 				} else {
-					throw `[!VM{type error, ${a.type.tr.description} -> ${this.args[i].tr.description}}]`;
-				}
-			} else {
-				nargs.push(a)
-			}
-		})
-		
-		return this.handler(...nargs);
-	}
-}
-
-export class CJSContext {
-	parent  = null;
-	vars    = {};
-	funcs   = {};
-	types   = {};
-	trapd   = false;
-	trapv   = "";
-
-	getv(n) {
-		if (this.vars[n]) {
-			return this.vars[n];
-		} else {
-			if (this.parent) {
-				return this.parent.getv(n);
-			}
-		}
-	}
-
-	getf(n) {
-		if (this.funcs[n]) {
-			return this.funcs[n];
-		} else {
-			if (this.parent) {
-				return this.parent.getf(n);
-			}
-		}
-	}
-
-	gett(n) {
-		if (this.types[n]) {
-			return this.types[n];
-		} else {
-			if (this.parent) {
-				return this.parent.gett(n);
-			}
-		}
-	}
-
-	bindf(n, a, r, h) {
-		let f = new CJSBoundFunction();
-
-		f.args = a;
-		f.retv = r;
-		f.handler = h;
-
-		this.funcs[n] = f;
-	}
-}
-
-export class CJSIdentifier {
-	name;
-
-	exec(i, context) {
-		return context.getv(this.name);
-	}
-
-	static parse(p) {
-		let r = new CJSIdentifier();
-		let t;
-
-		if (/\p{ID_Start}/u.test(p.src[p.pos])) {
-			r.name = p.src[p.pos];
-			p.pos++;
-			
-			while (/\p{ID_Continue}/u.test(p.src[p.pos]) && p.src[p.pos] != undefined) {
-				r.name += p.src[p.pos];
-				p.pos++;
-			}
-			
-			return r;
-		}
-	}
-}
-
-export class CJSNumber {
-	value;
-
-	exec(i, context) {
-		let v = new CJSValue();
-
-		v.type  = context.gett("int");
-		v.value = this.value;
-		
-		return v;
-	}
-	
-	static parse(p) {
-		let r = new CJSNumber();
-		let t;
-
-		let nm = undefined;
-		
-		while (/[0123456789]/.test(p.src[p.pos])) {
-			if (nm == undefined) nm = 0;
-			
-			nm *= 10;
-			nm += new Number(p.src[p.pos]);
-			
-			p.pos++;
-		}
-
-		r.value = nm;
-
-		if (nm != undefined) {
-			return r;
-		}
-	}
-}
-
-export class CJSParenExpr {
-	expr;
-	
-	exec(i, context) {
-		return i.exec(this.expr);
-	}
-	
-	static parse(p) {
-		let t;
-		let r = new CJSParenExpr();
-		
-		if (p.src[p.pos] == "(") {
-			p.pos++;
-			p.eat_ws();
-			t = p.parse(CJSConditional);
-			if (t) {
-				p.eat_ws();
-				if (p.src[p.pos] == ")") {
-					p.pos++;
-					r.expr = t;
-					return r;
+					this.cursor_mark = null;
 				}
 			}
-		}
-	}
-}
-
-export class CJSVarDeclaration {
-	name;
-	type;
-
-	exec(i, context) {
-		let v = new CJSValue();
-
-		v.type = context.gett(this.type);
-		
-		context.vars[this.name] = v;
-	}
-	
-	static parse(p) {
-		let r = new CJSVarDeclaration();
-		let t;
-
-		if (t = p.parse(CJSIdentifier)) {
-			r.type = t.name;
-			if (p.src[p.pos] == " ") {
-				p.pos++;
-				p.eat_ws();
-				if (t = p.parse(CJSIdentifier)) {
-					r.name = t.name;
-					return r;
+			
+			if (e.code == "ArrowRight") {
+				if (this.cursor_pos < this.value.length) {
+					this.cursor_pos++;
 				}
-			}
-		}
-	}
-}
-
-export class CJSPrimary {
-	a;
-
-	exec(i, context) {
-		return i.exec(this.a);
-	}
-	
-	static parse(p) {
-		let r = new CJSPrimary();
- 		let t;
-
-		if (t = p.parse(CJSNumber)) {
-			r.a = t;
-			return r;
-		}
-		
-		if (t = p.parse(CJSParenExpr)) {
-			r.a = t;
-			return r;
-		}
-		
-		if (t = p.parse(CJSVarDeclaration)) {
-			r.a = t;
-			return r;
-		}
-
-		if (t = p.parse(CJSCall)) {
-			r.a = t;
-			return r;
-		}
-
-		if (t = p.parse(CJSIdentifier)) {
-			r.a = t;
-			return r;
-		} 
-	}
-}
-
-export class CJSUnary {
-	type;
-	a;
-
-	exec(i, context) {
-		if (this.type) {
-			let a = i.exec(this.a);
-
-			let r = i.exec_overload(context, OVERLOAD_OP, `operator${this.type}`, [a]);
-
-			if (r) {
-				return r;
-			} else {
-				i.trap(`cant execute op  ${this.type} ${a.type.tr.description}`);
-			}
-		} else {
-			return i.exec(this.a);
-		}
-	}
-	
-	static parse(p) {
-		let t, r = new CJSUnary();
-
-		if (t = p.parse(CJSPrimary)) {
-			r.a = t;
-			return r;
-		}
-
-		if (p.src[p.pos] == "-" || p.src[p.pos] == "!") {
-			r.type = p.src[p.pos];
-			p.pos++;
-			p.eat_ws();
-			if (t = p.parse(CJSUnary)) {
-				r.a = t;
-				return r;
-			}
-		}
-	}
-}
-
-export class CJSExponent {
-	a;
-	b;
-
-	exec(i, context) {
-		if (this.b) {
-			let a = i.exec(this.a);
-			let b = i.exec(this.b);
-
-			let r = i.exec_overload(context, OVERLOAD_OP, "operator**", [a, b]);
-
-			if (r) {
-				return r;
-			} else {
-				i.trap(`cant execute op ${a.type.tr.description} ^ ${a.type.tr.description}`);
-			}
-		} else {
-			return i.exec(this.a);
-		}
-	}
-	
-	static parse(p) {
-		let r = new CJSExponent();
-		let t;
-
-		if (t = p.parse(CJSUnary)) {
-			r.a = t;
-			p.eat_ws();
-			if (p.src[p.pos] == "*") {
-				p.pos++;
-				if (p.src[p.pos] == "*") {
-					p.pos++;
-					p.eat_ws();
-					if (t = p.parse(CJSExponent)) {
-						r.b = t;
-						return r;
-					}
+			} else if (e.code == "ArrowLeft") {
+				if (this.cursor_pos != 0) {
+					this.cursor_pos--;
 				}
-			} else {
-				return r;
-			}
-		}
-	}
-}
-
-export class CJSMultiplicitave {
-	a;
-	b;
-	type;
-
-	exec(i, context) {
-		if (this.a) {
-			if (this.type) {
-				let a = i.exec(this.a);
-				let b = i.exec(this.b);
-	
-				let r = i.exec_overload(context, OVERLOAD_OP, `operator${this.type}`, [a, b]);
+			} else if (e.code == "ArrowUp" || e.code == "ArrowDown") {
+				this.lbstack = [];
 				
-				if (r) {
-					return r;
-				} else {
-					i.trap(`cant execute op ${a.type.tr.description} ${this.type} ${a.type.tr.description}`);
-				}
-			}
-		} else {
-			return i.exec(this.b);
-		}
-	}
+				let l = 0;
+
+				for (let i = this.cursor_pos; this.__value[i] != '\n' && i != 0; i--) l++;
+
+				if (e.code == "ArrowUp") {
+					for (let i = this.cursor_pos; this.__value[i] != '\n' && i != 0; i--) this.cursor_pos--;
+					if (this.cursor_pos) this.cursor_pos--;
+					for (let i = this.cursor_pos; this.__value[i] != '\n' && i != 0; i--) this.cursor_pos--;
 	
-	static parse(p) {
-		let r = new CJSMultiplicitave();
-		let t;
-
-		if (t = p.parse(CJSExponent)) {
-			r.b = t;
-
-			while (true) {
-				p.eat_ws();
-				if (/[*/%]/.test(p.src[p.pos])) {
-					let type = p.src[p.pos];
-					p.pos++;
-					p.eat_ws();
-					if (t = p.parse(CJSExponent)) {
-						let o = r;
-						r = new CJSMultiplicitave();
-						r.type = type;
-						r.a = o;
-						r.b = t;
-					}
-				} else {
-					return r;
-				}
-			}
-		}
-	}
-}
-
-export class CJSAdditive {
-	a;
-	b;
-	type;
-
-	exec(i, context) {
-		if (this.a) {
-			if (this.type) {
-				let a = i.exec(this.a);
-				let b = i.exec(this.b);
-	
-				let r = i.exec_overload(context, OVERLOAD_OP, `operator${this.type}`, [a, b]);
-	
-				if (r) {
-					return r;
-				} else {
-					i.trap(`cant execute op ${a.type.tr.description} ${this.type} ${a.type.tr.description}`);
-				}
-			}
-		} else {
-			return i.exec(this.b);
-		}
-	}
-	
-	static parse(p) {
-		let r = new CJSAdditive();
-		let t;
-
-		if (t = p.parse(CJSMultiplicitave)) {
-			r.b = t;
-
-			while (true) {
-				p.eat_ws();
-				if (p.src[p.pos] == "+" || p.src[p.pos] == "-") {
-					let type = p.src[p.pos];
-					p.pos++;
-					p.eat_ws();
-					if (t = p.parse(CJSMultiplicitave)) {
-						let o = r;
-						r = new CJSAdditive();
-						r.type = type;
-						r.a = o;
-						r.b = t;
-					}
-				} else {
-					return r;
-				}
-			}
-		}
-	}
-}
-
-export class CJSRelational {
-	a;
-	b;
-	type;
-
-	exec(i, context) {
-		if (this.a) {
-			if (this.type) {
-				let a = i.exec(this.a);
-				let b = i.exec(this.b);
-	
-				let r = i.exec_overload(context, OVERLOAD_OP, `operator${this.type}`, [a, b]);
-	
-				if (r) {
-					return r;
-				} else {
-					i.trap(`cant execute op ${a.type.tr.description} ${this.type} ${a.type.tr.description}`);
-				}
-			}
-		} else {
-			return i.exec(this.b);
-		}
-	}
-	
-	static parse(p) {
-		let t, r = new CJSRelational();
-
-		if (t = p.parse(CJSAdditive)) {
-			r.b = t;
-
-			while (true) {
-				p.eat_ws();
-				if (p.src[p.pos] == "<" && p.src[p.pos+1] == '=') {
-					p.pos += 2;
-					p.eat_ws();
-					if (t = p.parse(CJSAdditive)) {
-						let o = r;
-						r = new CJSRelational();
-						r.type = "<=";
-						r.a = o;
-						r.b = t;
-					}
-				} else if (p.src[p.pos] == ">" && p.src[p.pos+1] == '=') {
-					p.pos += 2;
-					p.eat_ws();
-					if (t = p.parse(CJSAdditive)) {
-						let o = r;
-						r = new CJSRelational();
-						r.type = ">=";
-						r.a = o;
-						r.b = t;
-					}
-				} else if (p.src[p.pos] == ">") {
-					p.pos++;
-					p.eat_ws();
-					if (t = p.parse(CJSAdditive)) {
-						let o = r;
-						r = new CJSRelational();
-						r.type = ">";
-						r.a = o;
-						r.b = t;
-					}
-				} else if (p.src[p.pos] == "<") {
-					p.pos += 1;
-					p.eat_ws();
-					if (t = p.parse(CJSAdditive)) {
-						let o = r;
-						r = new CJSRelational();
-						r.type = "<";
-						r.a = o;
-						r.b = t;
-					}
-				} else {
-					return r;
-				}
-			}
-		}
-	}
-}
-
-export class CJSEquality {
-	a;
-	b;
-	type;
-
-	exec(i, context) {
-		if (this.a) {
-			if (this.type) {
-				let a = i.exec(this.a);
-				let b = i.exec(this.b);
-	
-				let r = i.exec_overload(context, OVERLOAD_OP, `operator${this.type}`, [a, b]);
-	
-				if (r) {
-					return r;
-				} else {
-					i.trap(`cant execute op ${a.type.tr.description} ${this.type} ${a.type.tr.description}`);
-				}
-			}
-		} else {
-			return i.exec(this.b);
-		}
-	}
-	
-	static parse(p) {
-		let t, r = new CJSEquality();
-
-		if (t = p.parse(CJSRelational)) {
-			r.b = t;
-
-			while (true) {
-				p.eat_ws();
-				if (p.src[p.pos] == "=" && p.src[p.pos+1] == '=') {
-					p.pos += 2;
-					p.eat_ws();
-					if (t = p.parse(CJSRelational)) {
-						let o = r;
-						r = new CJSEquality();
-						r.type = "==";
-						r.a = o;
-						r.b = t;
-					}
-				} else if (p.src[p.pos] == "!" && p.src[p.pos+1] == '=') {
-					p.pos += 2;
-					p.eat_ws();
-					if (t = p.parse(CJSRelational)) {
-						let o = r;
-						r = new CJSEquality();
-						r.type = "!=";
-						r.a = o;
-						r.b = t;
-					}
-				} else {
-					return r;
-				}
-			}
-		}
-	}
-}
-
-export class CJSLogicalAND {
-	a;
-	b;
-
-	exec(i, context) {
-		if (this.b) {
-			let a = i.exec(this.a);
-			let b = i.exec(this.b);
-
-			let r = i.exec_overload(context, OVERLOAD_OP, "operator&&", [a, b]);
-
-			if (r) {
-				return r;
-			} else {
-				i.trap(`cant execute op ${a.type.tr.description} && ${a.type.tr.description}`);
-			}
-		} else {
-			return i.exec(this.a);
-		}
-	}
-	
-	static parse(p) {
-		let r = new CJSLogicalAND();
-		let t;
-
-		if (t = p.parse(CJSEquality)) {
-			r.a = t;
-			p.eat_ws();
-			if (p.src[p.pos] == "&") {
-				p.pos++;
-				if (p.src[p.pos] == "&") {
-					p.pos++;
-					p.eat_ws();
-					if (t = p.parse(CJSLogicalAND)) {
-						r.b = t;
-						return r;
-					}
-				}
-			} else {
-				return r;
-			}
-		}
-	}
-}
-
-export class CJSLogicalOR {
-	a;
-	b;
-
-	exec(i, context) {
-		if (this.b) {
-			let a = i.exec(this.a);
-			let b = i.exec(this.b);
-
-			let r = i.exec_overload(context, OVERLOAD_OP, "operator||", [a, b]);
-
-			if (r) {
-				return r;
-			} else {
-				i.trap(`cant execute op ${a.type.tr.description} || ${a.type.tr.description}`);
-			}
-		} else {
-			return i.exec(this.a);
-		}
-	}
-	
-	static parse(p) {
-		let r = new CJSLogicalOR();
-		let t;
-
-		if (t = p.parse(CJSLogicalAND)) {
-			r.a = t;
-			p.eat_ws();
-			if (p.src[p.pos] == "|") {
-				p.pos++;
-				if (p.src[p.pos] == '|') {
-					p.pos++;
-					p.eat_ws();
-					if (t = p.parse(CJSLogicalOR)) {
-						r.b = t;
-						return r;
-					}
-				}
-			} else {
-				return r;
-			}
-		}
-	}
-}
-
-export class CJSConditional {
-	a;
-	b;
-	c;
-
-	exec(i, context) {
-		if (this.b) {
-			if (i.exec(this.a)) {
-				return i.exec(this.b);
-			} else {
-				return i.exec(this.c);
-			}
-		} else {
-			return i.exec(this.a);
-		}
-	}
-
-	static parse(p) {
-		let r = new CJSConditional();
-		let t;
-
-		if (t = p.parse(CJSLogicalOR)) {
-			r.a = t;
-			p.eat_ws();
-			if (p.src[p.pos] == "?") {
-				p.pos++;
-				p.eat_ws();
-				if (t = p.parse(CJSAssignment)) {
-					r.b = t;
-					p.eat_ws();
-					if (p.src[p.pos] == ":") {
-						p.pos++;
-						p.eat_ws();
-						if (t = p.parse(CJSAssignment)) {
-							r.c = t;
-							return r;
+					for (let i = 0; i < l; i++) {
+						this.cursor_pos++;
+						if (this.__value[this.cursor_pos] == '\n') {
+							this.stylize();
+							this.cscroll();
+							return;
 						}
 					}
+	
+					if (this.cursor_pos) this.cursor_pos--;
+				} else if (e.code == "ArrowDown") {
+					for (let i = this.cursor_pos; this.__value[i] != '\n' && i <= this.__value.length; i++) this.cursor_pos++;
+					this.cursor_pos++;
+					for (let i = 0; this.__value[i] != '\n' && i < l && i < this.__value.length; i++) this.cursor_pos++;
 				}
+			} else if ((e.code == "KeyC" || e.code == "KeyX") && e.ctrlKey) {
+				let a, b;
+
+				if (this.cursor_mark < this.cursor_pos) {
+					a = this.cursor_mark;
+					b = this.cursor_pos;
+				} else {
+					a = this.cursor_pos;
+					b = this.cursor_mark;
+				}
+
+				navigator.clipboard.writeText(this.__value.slice(a, b));
+				if (e.code == "KeyX") {
+					this.__value = `${this.__value.slice(0, a)}${this.__value.slice(b)}`;
+				}
+			} else if (e.code == "Tab") {
+				e.preventDefault();
+				
+				tiarea.dispatchEvent(new InputEvent("beforeinput", {
+					inputType: "insertText",
+					data: "\t"
+				}));
 			} else {
-				return r;
+				return;
 			}
-		}
-	}
-}
 
-export class CJSAssignment {
-	a;
-	b;
+			this.stylize();
+			this.cscroll();
+		});
 
-	exec(i, context) {
-		if (this.a) {
-			let a = context.getv(this.a);
-			let b = i.exec(this.b);
+		tiarea.addEventListener("mousedown", (e) => {
+			if (e.button == 0) {
+				this.lbstack = [];
+				
+				this.cursor_mark = null;
+				this.drag_s = this.drag_e = this.cursor_pos = this.chit(e.clientX, e.clientY);
+				this.drag = 1;
+				
+				this.stylize();
+			}
+		});
+
+		tiarea.addEventListener("mousemove", (e) => {
+			if (this.drag) {
+				e.preventDefault();
 			
-			let r = i.exec_overload(context, OVERLOAD_OP, 'operator=', [a, b]);
-			
-			if (r) {
-				return r;
-			} else {
-				i.trap(`cant execute op ${a.type.tr.description} = ${a.type.tr.description}`);
-			}
-		} else {
-			return i.exec(this.b);
-		}
-	}
-	
-	static parse(p) {
-		let r = new CJSAssignment();
-		let t;
-
-		p.push();
-		if (t = p.parse(CJSIdentifier)) {
-			r.a = t.name;
-			p.eat_ws();
-			if (p.src[p.pos] == "=") {
-				p.pos++;
-				p.eat_ws();
-				if (t = p.parse(CJSAssignment)) {
-					r.b = t;
-					p.drop();
-					return r;
+				this.drag_e = this.cursor_pos = this.chit(e.clientX, e.clientY);
+				
+				if (this.drag_s != this.drag_e) {
+					this.cursor_mark = this.drag_s;
 				}
+				
+				this.stylize();
 			}
-			r.a = undefined;
-		}
-		p.pop();
-		
-		if (t = p.parse(CJSConditional)) {
-			r.b = t;
-			return r;
-		}
-	}
-}
-
-export class CJSBlock {
-	expr;
-
-	exec(i, context) {
-		return i.exec(this.expr);
-	}
-	
-	static parse(p) {
-		let t, r = new CJSBlock();
-
-		if (p.src[p.pos] == '{') {
-			p.pos++;
-			p.eat_ws();
-			if (r.expr = p.parse(CJSStatementList)) {
-				p.eat_ws();
-				if (p.src[p.pos] == '}') {
-					p.pos++;
-					return r;
-				}
-			}
-		}
-	}
-}
-
-export class CJSBlockStatement {
-	block;
-
-	exec(i, context) {
-		i.exec(this.block);
-	}
-	
-	static parse(p) {
-		let t, r = new CJSBlockStatement();
-
-		if (t = p.parse(CJSBlock)) {
-			r.block = t;
-			return r;
-		}
-	}
-}
-
-export class CJSIfStatement {
-	expr;
-	ifs;
-	elses;
-
-	exec(i, context) {
-		let er = i.exec(this.expr);
-
-		if (er.value) {
-			i.exec(this.ifs);
-		} else if (this.elses) {
-			i.exec(this.elses);
-		}
-	}
-	
-	static parse(p) {
-		let r = new CJSIfStatement();
-
-		p.eat_ws();
-		if (p.src[p.pos] == 'i') {
-			p.pos++;
-			if (p.src[p.pos] == 'f') {
-				p.pos++;
-				p.eat_ws();
-				if (p.src[p.pos] == '(') {
-					p.pos++;
-					p.eat_ws();
-					if (r.expr = p.parse(CJSAssignment)) {
-						p.eat_ws();
-						if (p.src[p.pos] == ')') {
-							p.pos++;
-							p.eat_ws();
-							if (r.ifs = p.parse(CJSStatement)) {
-								p.push()
-								p.eat_ws();
-								if (p.src[p.pos] == 'e') {
-									p.pos++;
-									if (p.src[p.pos] == 'l') {
-										p.pos++;
-										if (p.src[p.pos] == 's') {
-											p.pos++;
-											if (p.src[p.pos] == 'e') {
-												p.pos++;
-												p.eat_ws();
-												if (r.elses = p.parse(CJSStatement)) {
-													p.drop();
-													return r;
-												}
-											}
-										}
-									}
-								}
-								p.pop();
-								return r;
-							}
-						}
-					}					
-				}
-			}
-		}
-	}
-}
-
-export class CJSExpressionStatement {
-	expr;
-
-	exec(i, context) {
-		return i.exec(this.expr);
-	}
-
-	static parse(p) {
-		let t;
-		let r = new CJSExpressionStatement();
-		
-		if (t = p.parse(CJSAssignment)) {
-			if (p.src[p.pos] == ";") {
-				p.pos++;
-				p.eat_ws();
-				r.expr = t;
-				return r;
-			}
-		}
-	}
-}
-
-export class CJSStatement {
-	expr;
-
-	exec(i, context) {
-		return i.exec(this.expr);
-	}
-	
-	static parse(p) {
-		let r = new CJSStatement();
-		let t;
-
-		p.eat_ws();
-		if (t = p.parse(CJSIfStatement)) {
-			p.eat_ws();
-			r.expr = t;
-			return r;
-		}
-		
-		if (t = p.parse(CJSExpressionStatement)) {
-			p.eat_ws();
-			r.expr = t;
-			return r;
-		}
-
-		if (t = p.parse(CJSBlockStatement)) {
-			p.eat_ws();
-			r.expr = t;
-			return r;
-		}
-	}
-}
-
-export class CJSStatementList {
-	ins = [];
-
-	exec(i, context) {
-		let res = 0;
-		
-		this.ins.forEach((e) => {
-			res = i.exec(e);
 		});
 
-		return res;
-	}
-	
-	static parse(p) {
-		let r = new CJSStatementList();
-		let t;
-
-		while (t = p.parse(CJSStatement)) {
-			p.eat_ws();
-			r.ins.push(t);
-		}
-
-		return r;
-	}
-}
-
-export class CJSCallArguments {
-	args = [];
-
-	static parse(p) {
-		let r = new CJSCallArguments();
-		let t;
-
-		if (t = p.parse(CJSAssignment)) {
-			r.args.push(t);
-
-			while (p.src[p.pos] == ",") {
-				p.pos++;
-
-				if (t = p.parse(CJSAssignment)) {
-					r.args.push(t);
-				}
+		tiarea.addEventListener("mouseout", (e) => {
+			if (this.drag && !(e.buttons & 1)) {
+				this.drag = 0;
 			}
-		}
-		
-		return r;
-	}
-}
-
-export class CJSCall {
-	target = null;
-	args   = [];
-
-	exec(i, context) {
-		let f;
-		if (f = context.getf(this.target.name)) {
-			let args = [];
-
-			this.args.args.forEach((a) => {
-				args.push(a.exec(i, context));
-			});
-			
-			return f.call(args);
-		} else {
-			i.trap(`${this.target.name} is not a function`);
-		}
-	}
-	
-	static parse(p) {
-		let r = new CJSCall();
-		let t;
-
-		if (t = p.parse(CJSIdentifier)) {
-			r.target = t;
-			if (p.src[p.pos] == "(") {
-				p.pos++;
-				if (t = p.parse(CJSCallArguments)) {
-					r.args = t;
-					if (p.src[p.pos] == ")") {
-						p.pos++;
-						return r;
-					}
-				}
-			}
-		}
-	}
-}
-
-export class CJSParser {
-	src   = "";
-	stack = [];
-	pos   = 0;
-
-	constructor(data) {
-		this.src = data;
-	}
-
-	push() {
-		this.stack.unshift({
-			pos: this.pos
 		});
-	}
 
-	pop() {
-		let f = this.stack.shift();
-
-		this.pos = f.pos;
-	}
-
-	drop() {
-		this.stack.shift();
-	}
-
-	eat_ws() {
-		while (/[ \r\n\t]/.test(this.src[this.pos])) {
-			this.pos++;
-		}
-	}
-	
-	parse(c) {
-		this.push();
-		
-		let t = c.parse(this);
-
-		if (t) {
-			this.drop();
-			return t;
-		} else {
-			this.pop();
-		}
-	}
-}
-
-export class CJSInterpreter {
-	world = [];
-	
-	push_context(c) {
-		c = c || new CJSContext();
-
-		this.world.unshift(c);
-	}
-
-	pop_context() {
-		return this.world.shift();
-	}
-
-	trap(m) {
-		throw `[!VM{${m}}]`;
-	}
-
-	exec(c) {
-		try {
-			let res = c.exec(this, this.world[0])
-			
-			return res;
-		} catch (e) {
-			if (/^\[!VM{.*}]$/.test(e)) {
-				// should handle traps
-				throw e;
-			} else {
-				throw e;
+		tiarea.addEventListener("mousein", (e) => {
+			if (this.drag && !(e.buttons & 1)) {
+				this.drag = 0;
 			}
-		}
-	}
-
-	exec_overload(c, mode, name, args) {
-		let canidates = [];
-
-//		console.group(`resolve ${name}(${args.flatMap((a)=>{return a.type.tr.description;})})`);
-//		console.group(`find canidates`);
-//		console.group(`search members of`, args[0].type);
-		if (mode == OVERLOAD_OP) {
-			if (args[0].type.methods[name]) 
-				canidates.push(...args[0].type.methods[name]);
-		}
-//		console.groupEnd();
-//		console.groupEnd();
-//		console.group(`prune non-viable from`, canidates);
-		for (let i = 0; i < canidates.length; i++) {
-//			console.group(`check`, canidates[i]);
-			out: do {
-				let f = canidates[i];
-				if (f.args.length != args.length) {
-//					console.log(`argument count mismatch ${f.args.length} != 2`);
-//					console.log(`drop`, f);
-					canidates.splice(i, 1);
-					break;
-				}
-				_L2: for (let i = 1; i < args.length; i++) {
-					if (f.args[i].tr != args[i].type.tr) {
-//						console.group(`find implicit conversion for argument 1 `, args[i].type, `->`, f.args[i]);
-						if (args[i].type.methods["operatorcast"]) {
-							let methods = args[i].type.methods["operatorcast"];
-							for (let ii = 0; ii < methods.length; ii++) {
-//								console.log(methods[ii].retv.tr, f.args[i].tr)
-								if (methods[ii].retv.tr == f.args[i].tr) {
-//									console.log("found", methods[ii]);
-//									console.groupEnd();
-									continue _L2;
-								}
-							}
-						}
-//						console.log(`cast to`, f.args[i], `not found`);
-//						console.log(`drop`, f);
-//						console.groupEnd();
-						canidates.splice(i, 1);
-						break out;
-					}
-				}
-//				console.log(`keep`, f)
-			} while (false);
-//			console.groupEnd();
-		}
-//		console.groupEnd();
-//		console.group(`select best canidate from`, canidates)
-		let best  = null;
-		for (let i = 0; i < canidates.length; i++) {
-//			console.group(`compare`, best, canidates[i]);
-			do {
-				if (best == null) {
-//					console.log(`no best,`, canidates[i], `is automatically better`);
-					best = canidates[i];
-				} else {
-//					console.group(`compare`, a, b);
-					let bt, o, n = o = bt = 0;
-					if (b.type.tr == best.args[1].tr) {
-//						console.log(`best - no conversion, exact match`)
-						o = 3;
-					} else {
-//						console.log(`best - non-standard`)
-						o = 0;
-					}
-					if (b.type.tr == canidates[i].args[1].tr) {
-//						console.log(`this - no conversion, exact match`);
-						n = 3;
-					} else {
-//						console.log(`this - non-standard`);
-						n = 0;
-					}
-					do {
-						if (n > 0) {
-							if (b == 0) {
-//								console.log("this ranked higher than best");
-								bt = 1;
-								break;
-							}
-						}
-						if (n > 0 && b > 0) {
-							if (n > b) {
-//								console.log("this ranked higher than best");
-								bt = 1;
-								break;
-							}
-						}
-					} while (false);
-					if (bt) {
-						best = canidates[i]
-//						console.log(`new best is`, best);
-					} else {
-//						console.log(canidates[i], `worse than`, best);	
-					}
-//					console.groupEnd();
-				}
-			} while (false);
-//			console.groupEnd();
-		}
-		
-//		console.groupEnd();
-		if (!best) {
-			this.trap("type error");
-		}
-//		console.groupEnd();
-//		console.groupEnd();
-
-		return best.call(args);
-	}
-	
-	exec_script(script) {
-		let globals = new CJSContext();
-
-		// uh, types
-		let int_t =     new CJSType();
-		let float_t =   new CJSType();
-		let invalid_t = new CJSType();
-		
-		int_t.tr     = Symbol("int");
-		float_t.tr   = Symbol("float");
-		invalid_t.tr = Symbol("invalid");
-		
-		
-		int_t.bind_method("operatorcast", CJSBoundFunction.bind([int_t], float_t, (x) => {
-			let r = new CJSValue();
-
-			r.type = float_t;
-			r.value = x.value;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator**", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type  = int_t;
-			r.value = x.value ** y.value;
-
-			return r;
-		}));
-		
-		int_t.bind_method("operator*", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value * y.value;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator/", CJSBoundFunction.bind([int_t, int_t], float_t, (x, y) => {
-			let r = new CJSValue();
-
-			if (y.value == 0) {
-				this.trap("divide by zero");
-			}
-
-			r.type = float_t;
-			r.value = x.value / y.value;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator%", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value % y.value;
-
-			return r;
-		}))
-		
-		int_t.bind_method("operator+", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value + y.value;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator-", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value - y.value;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator=", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value = y.value;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator==", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value == y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator!=", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value != y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator<", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value < y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator>", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value > y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator<=", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value <= y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator>=", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value >= y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator&&", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value && y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		int_t.bind_method("operator||", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value || y.value ? 1 : 0;
-
-			return r;
-		})); // i have typed this stupid fucking int_t.bind_method over and over why the fuck did i do this
-
-		int_t.bind_method("operator!", CJSBoundFunction.bind([int_t], int_t, (x) => {
-			let r = new CJSValue();
-	
-			r.type = int_t;
-			r.value = !x.value ? 1 : 0;
-	
-			return r;
-		}));
-
-		float_t.bind_method("operatorcast", CJSBoundFunction.bind([float_t], int_t, (x) => {
-			let r = new CJSValue();
-	
-			r.type  = int_t;
-			r.value = Math.trunc(x.value);
-	
-			return r;
-		}));
-
-		float_t.bind_method("operator**", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type  = float_t;
-			r.value = x.value ** y.value;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator*", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = float_t;
-			r.value = x.value * y.value;
-
-			return r;
-		}))
-
-		float_t.bind_method("operator/", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-			let r = new CJSValue();
-
-			if (b.value == 0) {
-				this.trap("divide by zero");
-			}
-
-			r.type = float_t;
-			r.value = x.value / y.value;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator%", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = float_t;
-			r.value = x.value % y.value;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator+", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = float_t;
-			r.value = x.value + y.value;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator-", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = float_t;
-			r.value = x.value - y.value;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator=", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = float_t;
-			r.value = x.value = y.value;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator==", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value == y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator!=", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value != y.value ? 1 : 0;
-
-			return r;
-		})); // dont you love it when shitty teachers flood you with work and a skit every 2 weeks.
-
-		float_t.bind_method("operator>", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value > y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator<", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value < y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator>=", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value >= y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator<=", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value <= y.value ? 1 : 0;
-
-			return r;
-		}));
-		
-		float_t.bind_method("operator&&", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value && y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator||", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = x.value || y.value ? 1 : 0;
-
-			return r;
-		}));
-
-		float_t.bind_method("operator!", CJSBoundFunction.bind([float_t], int_t, (x) => {
-			let r = new CJSValue();
-
-			r.type = int_t;
-			r.value = !x.value;
-
-			return r;
-		}));
-		
-		globals.types["int"]   = int_t;
-		globals.types["float"] = float_t;
-		
-		// bindings
-		globals.bindf("sin", [float_t], float_t, (x) => {
-			let r = new CJSValue();
-
-			r.type = float_t;
-			r.value = Math.sin(x.value);
-
-			return r;
 		});
 		
-		globals.bindf("cos", [float_t], float_t, (x) => {
-			let r = new CJSValue();
+		tiarea.addEventListener("mouseup", (e) => {
+			this.drag = this.drag_e = this.drag_s = 0;
 
-			r.type = float_t;
-			r.value = Math.cos(x.value);
+			this.stylize();
+		});
 
-			return r;
+		tiarea.addEventListener("dblclick", (e) => {
+			let sp = this.chit(e.clientX, e.clientY);
+			let ep = sp;
+
+			for (; !(/[ \n\t\r;<>*()%/\-+?:=]/.test(this.__value[sp - 1])) && sp > 0; sp--) ;
+			for (; !(/[ \n\t\r;<>*()%/\-+?:=]/.test(this.__value[ep])) && ep < this.__value.length; ep++) ;
+
+			this.cursor_mark = sp;
+			this.cursor_pos  = ep;
+
+			this.stylize();
 		});
 		
-		globals.bindf("tan", [float_t], float_t, (x) => {
-			let r = new CJSValue();
+		shadow.appendChild(root);
+		root.appendChild(main);
+		main.appendChild(tarea);
+		tarea.appendChild(this.lnos);
+		tarea.appendChild(tiarea);
+		tiarea.appendChild(this.caretc);
+		this.caretc.appendChild(this.caretr);
+		tiarea.appendChild(this.hlc);
+		tiarea.appendChild(this.linec);
 
-			r.type = float_t;
-			r.value = Math.tan(x.value);
-
-			return r;
-		});
+		this.lnos.setAttribute("aria-hidden", "true");
 		
-		this.push_context(globals); 
-		
-		return this.exec(script);
+		this.stylize();
 	}
 }
+
+customElements.define("cjs-textarea", CJSTextAreaElement);
