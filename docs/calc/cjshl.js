@@ -49,6 +49,8 @@ export class CJSTextAreaElement extends HTMLElement {
 	drag;
 	drag_s;
 	drag_e;
+
+	lbstack = [];
 	
 	lnos;
 	lines = [];
@@ -142,6 +144,8 @@ export class CJSTextAreaElement extends HTMLElement {
 			if (this.__value[i] == '\n') {
 				rx = 0;
 				ry++;
+			} else if (this.__value[i] == '\t') {
+				rx += 4;
 			} else {
 				rx++;
 			}
@@ -158,11 +162,16 @@ export class CJSTextAreaElement extends HTMLElement {
 			}
 			
 			if (/[ \t\r]/.test(this.__value[i])) {
+				let d;
+				
+				if (this.value[i] == '\t') d = "    ";
+				else                       d = this.__value[i];
+				
 				if (ct.type == "whitespace") {
-					ct.data += this.__value[i];
+					ct.data += d;
 				} else {
 					tokens.push(ct);
-					ct = { type: "whitespace", data: this.__value[i], line: cy };
+					ct = { type: "whitespace", data: d, line: cy };
 				}
 			} else if (/\n/.test(this.value[i])) {
 				tokens.push(ct);
@@ -221,7 +230,11 @@ export class CJSTextAreaElement extends HTMLElement {
 				llno = line_numbers - 1;
 				if (tokens[i].type == "identifier") {
 					let t = document.createElement("span");
-					if (tokens[i + 1]?.type == "whitespace" && tokens[i + 2]?.type == "identifier") {
+					if (tokens[i].data == "if" || 
+						tokens[i].data == "else") {
+						tokens[i].type = "keyword";
+						t.className = "token_keyword";
+					} else if (tokens[i + 1]?.type == "whitespace" && tokens[i + 2]?.type == "identifier") {
 						t.className = "token_class_identifier";
 					} else if (tokens[i + 1]?.data == '(') {
 						t.className = "token_function_identifier";
@@ -354,18 +367,47 @@ export class CJSTextAreaElement extends HTMLElement {
 
 			if (thing) {
 				if (e.inputType == "insertText") {
-					this.__value = `${this.__value.slice(0, this.cursor_pos)}${e.data}${this.__value.slice(this.cursor_pos)}`;
-					this.cursor_pos++;
+					if (e.data == '(') {
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}()${this.__value.slice(this.cursor_pos)}`;
+						this.cursor_pos++;
+						this.lbstack.push(")");
+					} else if (e.data == ')') {
+						if (this.lbstack[this.lbstack.length - 1] == ')') {
+							this.lbstack.pop();
+						} else {
+							this.__value = `${this.__value.slice(0, this.cursor_pos)})${this.__value.slice(this.cursor_pos)}`;
+						}
+						this.cursor_pos++;
+					} else {
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}${e.data}${this.__value.slice(this.cursor_pos)}`;
+						this.cursor_pos++;
+					}
 				} else if (e.inputType == "insertParagraph") {
-					this.__value = `${this.__value.slice(0, this.cursor_pos)}\n${this.__value.slice(this.cursor_pos)}`;
-					this.cursor_pos++;
+					let sc = 0, tc = 0;
+					for (let i = this.cursor_pos; this.__value[i] != '\n' && i > 0; i--) sc = i;
+					for (let i = sc; this.__value[i] == '\t' && i < this.__value.length; i++) tc++;
+					for (let i = sc; i < this.cursor_pos; i++) {
+						if      (this.__value[i] == '{') tc++;
+						else if (this.__value[i] == '(') tc++;
+						else if (this.__value[i] == '}') tc--;
+						else if (this.__value[i] == ')') tc--;
+					}
+					
+					if (tc < 0) tc = 0;
+					
+					this.__value = `${this.__value.slice(0, this.cursor_pos)}\n${"".padStart(tc, "\t")}${this.__value.slice(this.cursor_pos)}`;
+					this.cursor_pos += 1 + tc;
+
+					this.lbstack = []
 				} else if (e.inputType == "deleteContentBackward") {
 					if (this.cursor_pos != 0) {
+						if (this.__value[this.cursor_pos - 1] == '\n') this.lbstack = [];
 						this.__value = `${this.__value.slice(0, this.cursor_pos - 1)}${this.__value.slice(this.cursor_pos)}`;
 						this.cursor_pos--;
 					}
 				} else if (e.inputType == "deleteContentForward") {
 					if (this.cursor_pos < this.value.length) {
+						if (this.__value[this.cursor_pos] == this.lbstack[this.lbstack.length - 1]) this.lbstack.pop();
 						this.__value = `${this.__value.slice(0, this.cursor_pos)}${this.__value.slice(this.cursor_pos + 1)}`;
 					}
 				} else if (e.inputType == "deleteWordBackward") {
@@ -423,6 +465,8 @@ export class CJSTextAreaElement extends HTMLElement {
 					this.cursor_pos--;
 				}
 			} else if (e.code == "ArrowUp" || e.code == "ArrowDown") {
+				this.lbstack = [];
+				
 				let l = 0;
 
 				for (let i = this.cursor_pos; this.__value[i] != '\n' && i != 0; i--) l++;
@@ -462,6 +506,13 @@ export class CJSTextAreaElement extends HTMLElement {
 				if (e.code == "KeyX") {
 					this.__value = `${this.__value.slice(0, a)}${this.__value.slice(b)}`;
 				}
+			} else if (e.code == "Tab") {
+				e.preventDefault();
+				
+				tiarea.dispatchEvent(new InputEvent("beforeinput", {
+					inputType: "insertText",
+					data: "\t"
+				}));
 			} else {
 				return;
 			}
@@ -472,6 +523,8 @@ export class CJSTextAreaElement extends HTMLElement {
 
 		tiarea.addEventListener("mousedown", (e) => {
 			if (e.button == 0) {
+				this.lbstack = [];
+				
 				this.cursor_mark = null;
 				this.drag_s = this.drag_e = this.cursor_pos = this.chit(e.clientX, e.clientY);
 				this.drag = 1;
