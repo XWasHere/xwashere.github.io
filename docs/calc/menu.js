@@ -87,12 +87,6 @@ export class XUtilsMenuItemElement extends HTMLElement {
 			this.shadowRoot.appendChild(root);
 			root.appendChild(button);
 			button.appendChild(bcontent);
-
-			button.addEventListener("click", (e) => {
-				this.dispatchEvent(new MouseEvent("click", {
-					
-				}));
-			})
 		} else if (this.type == "toggle") {
 			let root = document.createElement("div");
 			let text = document.createElement("button");
@@ -124,6 +118,9 @@ export class XUtilsMenuItemElement extends HTMLElement {
 			
 			text.addEventListener("click", (e) => {
 				this.value = !this.value;
+				this.dispatchEvent(new Event("changed", {
+					
+				}));
 			})
 		}
 	}
