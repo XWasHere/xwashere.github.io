@@ -395,7 +395,7 @@ export class CJSMultiplicitave {
 				let a = i.exec(this.a);
 				let b = i.exec(this.b);
 	
-				let r = CJSType.exec_op(context, a, "%", b);
+				let r = i.exec_op(context, a, "%", b);
 	
 				if (r) {
 					return r;
@@ -458,7 +458,7 @@ export class CJSAdditive {
 				let a = i.exec(this.a);
 				let b = i.exec(this.b);
 	
-				let r = CJSType.exec_op(context, a, "-", b);
+				let r = i.exec_op(context, a, "-", b);
 	
 				if (r) {
 					return r;
@@ -499,6 +499,77 @@ export class CJSAdditive {
 	}
 }
 
+export class CJSEquality {
+	a;
+	b;
+	type;
+
+	exec(i, context) {
+		if (this.a) {
+			if (this.type == "==") {
+				let a = i.exec(this.a);
+				let b = i.exec(this.b);
+	
+				let r = i.exec_op(context, a, "==", b);
+	
+				if (r) {
+					return r;
+				} else {
+					i.trap(`cant execute op ${a.type.tr.description} == ${a.type.tr.description}`);
+				}
+			} else if (this.type == "!=") {
+				let a = i.exec(this.a);
+				let b = i.exec(this.b);
+	
+				let r = i.exec_op(context, a, "!=", b);
+	
+				if (r) {
+					return r;
+				} else {
+					i.trap(`cant execute op ${a.type.tr.description} != ${a.type.tr.description}`);
+				}
+			}
+		} else {
+			return i.exec(this.b);
+		}
+	}
+	
+	static parse(p) {
+		let t, r = new CJSEquality();
+
+		if (t = p.parse(CJSAdditive)) {
+			r.b = t;
+
+			while (true) {
+				p.eat_ws();
+				if (p.src[p.pos] == "=" && p.src[p.pos+1] == '=') {
+					p.pos += 2;
+					p.eat_ws();
+					if (t = p.parse(CJSAdditive)) {
+						let o = r;
+						r = new CJSEquality();
+						r.type = "==";
+						r.a = o;
+						r.b = t;
+					}
+				} else if (p.src[p.pos] == "!" && p.src[p.pos+1] == '=') {
+					p.pos += 2;
+					p.eat_ws();
+					if (t = p.parse(CJSAdditive)) {
+						let o = r;
+						r = new CJSEquality();
+						r.type = "!=";
+						r.a = o;
+						r.b = t;
+					}
+				} else {
+					return r;
+				}
+			}
+		}
+	}
+}
+
 export class CJSConditional {
 	a;
 	b;
@@ -520,7 +591,7 @@ export class CJSConditional {
 		let r = new CJSConditional();
 		let t;
 
-		if (t = p.parse(CJSAdditive)) {
+		if (t = p.parse(CJSEquality)) {
 			r.a = t;
 			p.eat_ws();
 			if (p.src[p.pos] == "?") {
@@ -594,7 +665,7 @@ export class CJSAssignment {
 	}
 }
 
-export class CJSExpr {
+export class CJSBlock {
 	expr;
 
 	exec(i, context) {
@@ -602,25 +673,157 @@ export class CJSExpr {
 	}
 	
 	static parse(p) {
-		let r = new CJSExpr();
-		let t;
+		let t, r = new CJSBlock();
+
+		if (p.src[p.pos] == '{') {
+			p.pos++;
+			p.eat_ws();
+			if (r.expr = p.parse(CJSStatementList)) {
+				p.eat_ws();
+				if (p.src[p.pos] == '}') {
+					p.pos++;
+					return r;
+				}
+			}
+		}
+	}
+}
+
+export class CJSBlockStatement {
+	block;
+
+	exec(i, context) {
+		i.exec(this.block);
+	}
+	
+	static parse(p) {
+		let t, r = new CJSBlockStatement();
+
+		if (t = p.parse(CJSBlock)) {
+			r.block = t;
+			return r;
+		}
+	}
+}
+
+export class CJSIfStatement {
+	expr;
+	ifs;
+	elses;
+
+	exec(i, context) {
+		let er = i.exec(this.expr);
+
+		if (er.value) {
+			i.exec(this.ifs);
+		} else if (this.elses) {
+			i.exec(this.elses);
+		}
+	}
+	
+	static parse(p) {
+		let r = new CJSIfStatement();
 
 		p.eat_ws();
+		if (p.src[p.pos] == 'i') {
+			p.pos++;
+			if (p.src[p.pos] == 'f') {
+				p.pos++;
+				p.eat_ws();
+				if (p.src[p.pos] == '(') {
+					p.pos++;
+					p.eat_ws();
+					if (r.expr = p.parse(CJSAssignment)) {
+						p.eat_ws();
+						if (p.src[p.pos] == ')') {
+							p.pos++;
+							p.eat_ws();
+							if (r.ifs = p.parse(CJSStatement)) {
+								p.push()
+								p.eat_ws();
+								if (p.src[p.pos] == 'e') {
+									p.pos++;
+									if (p.src[p.pos] == 'l') {
+										p.pos++;
+										if (p.src[p.pos] == 's') {
+											p.pos++;
+											if (p.src[p.pos] == 'e') {
+												p.pos++;
+												p.eat_ws();
+												if (r.elses = p.parse(CJSStatement)) {
+													p.drop();
+													return r;
+												}
+											}
+										}
+									}
+								}
+								p.pop();
+								return r;
+							}
+						}
+					}					
+				}
+			}
+		}
+	}
+}
+
+export class CJSExpressionStatement {
+	expr;
+
+	exec(i, context) {
+		return i.exec(this.expr);
+	}
+
+	static parse(p) {
+		let t;
+		let r = new CJSExpressionStatement();
+		
 		if (t = p.parse(CJSAssignment)) {
 			if (p.src[p.pos] == ";") {
 				p.pos++;
-				
 				p.eat_ws();
-				
 				r.expr = t;
-				
 				return r;
 			}
 		}
 	}
 }
 
-export class CJSExprList {
+export class CJSStatement {
+	expr;
+
+	exec(i, context) {
+		return i.exec(this.expr);
+	}
+	
+	static parse(p) {
+		let r = new CJSStatement();
+		let t;
+
+		p.eat_ws();
+		if (t = p.parse(CJSIfStatement)) {
+			p.eat_ws();
+			r.expr = t;
+			return r;
+		}
+		
+		if (t = p.parse(CJSExpressionStatement)) {
+			p.eat_ws();
+			r.expr = t;
+			return r;
+		}
+
+		if (t = p.parse(CJSBlockStatement)) {
+			p.eat_ws();
+			r.expr = t;
+			return r;
+		}
+	}
+}
+
+export class CJSStatementList {
 	ins = [];
 
 	exec(i, context) {
@@ -634,10 +837,10 @@ export class CJSExprList {
 	}
 	
 	static parse(p) {
-		let r = new CJSExprList();
+		let r = new CJSStatementList();
 		let t;
 
-		while (t = p.parse(CJSExpr)) {
+		while (t = p.parse(CJSStatement)) {
 			p.eat_ws();
 			r.ins.push(t);
 		}
@@ -984,6 +1187,26 @@ export class CJSInterpreter {
 
 					return r;
 				})
+			},
+			"==": {
+				[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+					let r = new CJSValue();
+
+					r.type = int_t;
+					r.value = x.value == y.value;
+
+					return r;
+				})
+			},
+			"!=": {
+				[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+					let r = new CJSValue();
+
+					r.type = int_t;
+					r.value = x.value != y.value;
+
+					return r;
+				})
 			}
 		}
 
@@ -1066,6 +1289,26 @@ export class CJSInterpreter {
 
 					r.type = float_t;
 					r.value = x.value = y.value;
+
+					return r;
+				})
+			},
+			"==": {
+				[float_t.tr]: CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
+					let r = new CJSValue();
+
+					r.type = float_t;
+					r.value = x.value == y.value;
+
+					return r;
+				})
+			},
+			"!=": {
+				[float_t.tr]: CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
+					let r = new CJSValue();
+
+					r.type = float_t;
+					r.value = x.value != y.value;
 
 					return r;
 				})
