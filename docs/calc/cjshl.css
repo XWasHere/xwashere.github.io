@@ -159,3 +159,7 @@
 .token_class_identifier {
 	color: #50dda2;
 }
+
+.token_keyword {
+	color: #c194fb;
+}
