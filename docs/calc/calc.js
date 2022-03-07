@@ -412,7 +412,7 @@ export class CJSExponent {
 		if (t = p.parse(CJSUnary)) {
 			r.a = t;
 			p.eat_ws();
-			if (p.src[p.pos] == "*") {
+			if (p.src[p.pos] == "*" && p.src[p.pos+1] == "*") {
 				p.pos++;
 				if (p.src[p.pos] == "*") {
 					p.pos++;
