@@ -371,11 +371,15 @@ export class CJSTextAreaElement extends HTMLElement {
 						this.__value = `${this.__value.slice(0, this.cursor_pos)}()${this.__value.slice(this.cursor_pos)}`;
 						this.cursor_pos++;
 						this.lbstack.push(")");
-					} else if (e.data == ')') {
-						if (this.lbstack[this.lbstack.length - 1] == ')') {
+					} else if (e.data == '{') {
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}{}${this.__value.slice(this.cursor_pos)}`;
+						this.cursor_pos++;
+						this.lbstack.push("}");
+					} else if (e.data == ')' || e.data == '}') {
+						if (this.lbstack[this.lbstack.length - 1] == e.data) {
 							this.lbstack.pop();
 						} else {
-							this.__value = `${this.__value.slice(0, this.cursor_pos)})${this.__value.slice(this.cursor_pos)}`;
+							this.__value = `${this.__value.slice(0, this.cursor_pos)}${e.data}${this.__value.slice(this.cursor_pos)}`;
 						}
 						this.cursor_pos++;
 					} else {
@@ -386,18 +390,14 @@ export class CJSTextAreaElement extends HTMLElement {
 					let sc = 0, tc = 0;
 					for (let i = this.cursor_pos; this.__value[i] != '\n' && i > 0; i--) sc = i;
 					for (let i = sc; this.__value[i] == '\t' && i < this.__value.length; i++) tc++;
-					for (let i = sc; i < this.cursor_pos; i++) {
-						if      (this.__value[i] == '{') tc++;
-						else if (this.__value[i] == '(') tc++;
-						else if (this.__value[i] == '}') tc--;
-						else if (this.__value[i] == ')') tc--;
+					if (this.__value[this.cursor_pos - 1] == '(' && this.__value[this.cursor_pos] == ')' || this.__value[this.cursor_pos - 1] == '{' && this.value[this.cursor_pos] == '}') {
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}\n${"".padStart(tc + 1, "\t")}\n${"".padStart(tc, "\t")}${this.__value.slice(this.cursor_pos)}`;
+						this.cursor_pos += 2 + tc;
+					} else {
+						this.__value = `${this.__value.slice(0, this.cursor_pos)}\n${"".padStart(tc, "\t")}${this.__value.slice(this.cursor_pos)}`;
+						this.cursor_pos += 1 + tc;
 					}
 					
-					if (tc < 0) tc = 0;
-					
-					this.__value = `${this.__value.slice(0, this.cursor_pos)}\n${"".padStart(tc, "\t")}${this.__value.slice(this.cursor_pos)}`;
-					this.cursor_pos += 1 + tc;
-
 					this.lbstack = []
 				} else if (e.inputType == "deleteContentBackward") {
 					if (this.cursor_pos != 0) {
