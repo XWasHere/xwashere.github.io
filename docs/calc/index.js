@@ -51,6 +51,17 @@ function exec(src) {
 	}
 }
 
+function load_config() {
+	let src = JSON.parse(localStorage.getItem("config") ?? "{}");
+	return {
+		autoexec: src.autoexec ?? false
+	};
+}
+
+function save_config(c) {
+	localStorage.setItem("config", JSON.stringify(c));
+}
+
 async function main() {
 	let autoexec = document.getElementById("cfg_auto_exec");
 	let execbutton = document.getElementById("exec_button");
@@ -71,6 +82,14 @@ async function main() {
 			}
 		})()
 	]);
+
+	let config = load_config();
+
+	autoexec.value = config.autoexec;
+	autoexec.addEventListener("changed", (e) => {
+		config.autoexec = autoexec.value;
+		save_config(config);
+	});
 	
 	input_thing = document.getElementById("src");
 	input_thing.addEventListener("input", () => {
