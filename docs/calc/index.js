@@ -18,7 +18,7 @@ var cjs, cjshl, menu;
 function parse(e) {
 	let p = new cjs.CJSParser(e);
 	
-	return p.parse(cjs.CJSExprList);
+	return p.parse(cjs.CJSStatementList);
 }
 
 function exec(src) {
@@ -84,10 +84,6 @@ async function main() {
 	execbutton.addEventListener("click", () => {
 		output_thing.textContent = exec(input_thing.value);
 	})
-	
-	// test
-//	exec(`int a;int b;b=0;a=1;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;a=a*2;b=b+a;0?1:b;`);
-//	exec(`int a; float b; b = 1/2; a = b; a;`);
 }
 
 main();
