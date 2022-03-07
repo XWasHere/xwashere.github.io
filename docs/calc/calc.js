@@ -349,7 +349,22 @@ export class CJSUnary {
 	a;
 
 	exec(i, context) {
-		if (this.type) {
+		if (this.type == "-") {
+			let a = i.exec(this.a);
+			let r = new CJSValue();
+
+			console.log(a);
+			
+			if (a.type.tr.description == "int" || a.type.tr.description == "float") {
+				r.type  = a.type;
+				r.value = -a.value;
+			} else {
+				r.type  = context.gett("int");
+				r.value = -0;
+			}
+
+			return r;
+		} else if (this.type) {
 			let a = i.exec(this.a);
 
 			let r = i.exec_overload(context, OVERLOAD_OP, `operator${this.type}`, [a]);
