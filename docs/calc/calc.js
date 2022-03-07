@@ -19,12 +19,19 @@ var input_thing;
 var output_container;
 var output_thing;
 
+const OVERLOAD_OP = 1;
+
+function mangle(args) {
+	let m = args.name;
+	return m;
+}
+
 export class CJSType {
 	is_primitave = false;
 	tr;
 	
 //	casts = { t: {}, f: {} };
-	ops   = {};
+	methods = {};
 	
 	constructor() {
 		
@@ -34,6 +41,14 @@ export class CJSType {
 		if (x.type.ops[this.type.tr]) {
 			return x.type.ops[this.type.tr].call([x]);
 		}
+	}
+
+	bind_method(n, f) {
+		if (!this.methods[n]) {
+			this.methods[n] = [];
+		}
+
+		this.methods[n].push(f);
 	}
 	
 	exec_op(x, o, y) {
@@ -101,7 +116,17 @@ export class CJSBoundFunction {
 		args.forEach((a, i) => {
 			if (a.type.tr != this.args[i].tr) {
 				let v;
-				if (v = a.type.ops[this.args[i].tr].call([a])) {
+				
+				let m = a.type.methods["operatorcast"];
+
+				for (let i = 0; i < m.length; i++) {
+					if (m[i].retv.tr == this.args[i].tr) {
+						v = m[i].call([a]);
+						break;
+					}
+				}
+
+				if (v) {
 					nargs.push(v);
 				} else {
 					throw `[!VM{type error, ${a.type.tr.description} -> ${this.args[i].tr.description}}]`;
@@ -290,7 +315,7 @@ export class CJSPrimary {
 	
 	static parse(p) {
 		let r = new CJSPrimary();
-		let t;
+ 		let t;
 
 		if (t = p.parse(CJSNumber)) {
 			r.a = t;
@@ -319,6 +344,46 @@ export class CJSPrimary {
 	}
 }
 
+export class CJSUnary {
+	type;
+	a;
+
+	exec(i, context) {
+		if (this.type) {
+			let a = i.exec(this.a);
+
+			let r = i.exec_overload(context, OVERLOAD_OP, `operator${this.type}`, [a]);
+
+			if (r) {
+				return r;
+			} else {
+				i.trap(`cant execute op  ${this.type} ${a.type.tr.description}`);
+			}
+		} else {
+			return i.exec(this.a);
+		}
+	}
+	
+	static parse(p) {
+		let t, r = new CJSUnary();
+
+		if (t = p.parse(CJSPrimary)) {
+			r.a = t;
+			return r;
+		}
+
+		if (p.src[p.pos] == "-" || p.src[p.pos] == "!") {
+			r.type = p.src[p.pos];
+			p.pos++;
+			p.eat_ws();
+			if (t = p.parse(CJSUnary)) {
+				r.a = t;
+				return r;
+			}
+		}
+	}
+}
+
 export class CJSExponent {
 	a;
 	b;
@@ -328,7 +393,7 @@ export class CJSExponent {
 			let a = i.exec(this.a);
 			let b = i.exec(this.b);
 
-			let r = i.exec_op(context, a, "^", b);
+			let r = i.exec_overload(context, OVERLOAD_OP, "operator**", [a, b]);
 
 			if (r) {
 				return r;
@@ -344,15 +409,18 @@ export class CJSExponent {
 		let r = new CJSExponent();
 		let t;
 
-		if (t = p.parse(CJSPrimary)) {
+		if (t = p.parse(CJSUnary)) {
 			r.a = t;
 			p.eat_ws();
-			if (p.src[p.pos] == "^") {
+			if (p.src[p.pos] == "*") {
 				p.pos++;
-				p.eat_ws();
-				if (t = p.parse(CJSExponent)) {
-					r.b = t;
-					return r;
+				if (p.src[p.pos] == "*") {
+					p.pos++;
+					p.eat_ws();
+					if (t = p.parse(CJSExponent)) {
+						r.b = t;
+						return r;
+					}
 				}
 			} else {
 				return r;
@@ -368,39 +436,16 @@ export class CJSMultiplicitave {
 
 	exec(i, context) {
 		if (this.a) {
-			if (this.type == "*") {
+			if (this.type) {
 				let a = i.exec(this.a);
 				let b = i.exec(this.b);
 	
-				let r = i.exec_op(context, a, "*", b);
+				let r = i.exec_overload(context, OVERLOAD_OP, `operator${this.type}`, [a, b]);
 				
 				if (r) {
 					return r;
 				} else {
-					i.trap(`cant execute op ${a.type.tr.description} * ${a.type.tr.description}`);
-				}
-			} else if (this.type == "/") {
-				let a = i.exec(this.a);
-				let b = i.exec(this.b);
-	
-//				let r = CJSType.exec_op(a, "/", b);
-				let r = i.exec_op(context, a, "/", b);
-				
-				if (r) {
-					return r;
-				} else {
-					i.trap(`cant execute op ${a.type.tr.description} / ${a.type.tr.description}`);
-				}
-			} else if (this.type == "%") {
-				let a = i.exec(this.a);
-				let b = i.exec(this.b);
-	
-				let r = i.exec_op(context, a, "%", b);
-	
-				if (r) {
-					return r;
-				} else {
-					i.trap(`cant execute op ${a.type.tr.description} % ${a.type.tr.description}`);
+					i.trap(`cant execute op ${a.type.tr.description} ${this.type} ${a.type.tr.description}`);
 				}
 			}
 		} else {
@@ -443,27 +488,16 @@ export class CJSAdditive {
 
 	exec(i, context) {
 		if (this.a) {
-			if (this.type == "+") {
+			if (this.type) {
 				let a = i.exec(this.a);
 				let b = i.exec(this.b);
 	
-				let r = i.exec_op(context, a, "+", b);
+				let r = i.exec_overload(context, OVERLOAD_OP, `operator${this.type}`, [a, b]);
 	
 				if (r) {
 					return r;
 				} else {
-					i.trap(`cant execute op ${a.type.tr.description} + ${a.type.tr.description}`);
-				}
-			} else if (this.type == "-") {
-				let a = i.exec(this.a);
-				let b = i.exec(this.b);
-	
-				let r = i.exec_op(context, a, "-", b);
-	
-				if (r) {
-					return r;
-				} else {
-					i.trap(`cant execute op ${a.type.tr.description} - ${a.type.tr.description}`);
+					i.trap(`cant execute op ${a.type.tr.description} ${this.type} ${a.type.tr.description}`);
 				}
 			}
 		} else {
@@ -499,6 +533,86 @@ export class CJSAdditive {
 	}
 }
 
+export class CJSRelational {
+	a;
+	b;
+	type;
+
+	exec(i, context) {
+		if (this.a) {
+			if (this.type) {
+				let a = i.exec(this.a);
+				let b = i.exec(this.b);
+	
+				let r = i.exec_overload(context, OVERLOAD_OP, `operator${this.type}`, [a, b]);
+	
+				if (r) {
+					return r;
+				} else {
+					i.trap(`cant execute op ${a.type.tr.description} ${this.type} ${a.type.tr.description}`);
+				}
+			}
+		} else {
+			return i.exec(this.b);
+		}
+	}
+	
+	static parse(p) {
+		let t, r = new CJSRelational();
+
+		if (t = p.parse(CJSAdditive)) {
+			r.b = t;
+
+			while (true) {
+				p.eat_ws();
+				if (p.src[p.pos] == "<" && p.src[p.pos+1] == '=') {
+					p.pos += 2;
+					p.eat_ws();
+					if (t = p.parse(CJSAdditive)) {
+						let o = r;
+						r = new CJSRelational();
+						r.type = "<=";
+						r.a = o;
+						r.b = t;
+					}
+				} else if (p.src[p.pos] == ">" && p.src[p.pos+1] == '=') {
+					p.pos += 2;
+					p.eat_ws();
+					if (t = p.parse(CJSAdditive)) {
+						let o = r;
+						r = new CJSRelational();
+						r.type = ">=";
+						r.a = o;
+						r.b = t;
+					}
+				} else if (p.src[p.pos] == ">") {
+					p.pos++;
+					p.eat_ws();
+					if (t = p.parse(CJSAdditive)) {
+						let o = r;
+						r = new CJSRelational();
+						r.type = ">";
+						r.a = o;
+						r.b = t;
+					}
+				} else if (p.src[p.pos] == "<") {
+					p.pos += 1;
+					p.eat_ws();
+					if (t = p.parse(CJSAdditive)) {
+						let o = r;
+						r = new CJSRelational();
+						r.type = "<";
+						r.a = o;
+						r.b = t;
+					}
+				} else {
+					return r;
+				}
+			}
+		}
+	}
+}
+
 export class CJSEquality {
 	a;
 	b;
@@ -506,27 +620,16 @@ export class CJSEquality {
 
 	exec(i, context) {
 		if (this.a) {
-			if (this.type == "==") {
+			if (this.type) {
 				let a = i.exec(this.a);
 				let b = i.exec(this.b);
 	
-				let r = i.exec_op(context, a, "==", b);
+				let r = i.exec_overload(context, OVERLOAD_OP, `operator${this.type}`, [a, b]);
 	
 				if (r) {
 					return r;
 				} else {
-					i.trap(`cant execute op ${a.type.tr.description} == ${a.type.tr.description}`);
-				}
-			} else if (this.type == "!=") {
-				let a = i.exec(this.a);
-				let b = i.exec(this.b);
-	
-				let r = i.exec_op(context, a, "!=", b);
-	
-				if (r) {
-					return r;
-				} else {
-					i.trap(`cant execute op ${a.type.tr.description} != ${a.type.tr.description}`);
+					i.trap(`cant execute op ${a.type.tr.description} ${this.type} ${a.type.tr.description}`);
 				}
 			}
 		} else {
@@ -537,7 +640,7 @@ export class CJSEquality {
 	static parse(p) {
 		let t, r = new CJSEquality();
 
-		if (t = p.parse(CJSAdditive)) {
+		if (t = p.parse(CJSRelational)) {
 			r.b = t;
 
 			while (true) {
@@ -545,7 +648,7 @@ export class CJSEquality {
 				if (p.src[p.pos] == "=" && p.src[p.pos+1] == '=') {
 					p.pos += 2;
 					p.eat_ws();
-					if (t = p.parse(CJSAdditive)) {
+					if (t = p.parse(CJSRelational)) {
 						let o = r;
 						r = new CJSEquality();
 						r.type = "==";
@@ -555,7 +658,7 @@ export class CJSEquality {
 				} else if (p.src[p.pos] == "!" && p.src[p.pos+1] == '=') {
 					p.pos += 2;
 					p.eat_ws();
-					if (t = p.parse(CJSAdditive)) {
+					if (t = p.parse(CJSRelational)) {
 						let o = r;
 						r = new CJSEquality();
 						r.type = "!=";
@@ -565,6 +668,96 @@ export class CJSEquality {
 				} else {
 					return r;
 				}
+			}
+		}
+	}
+}
+
+export class CJSLogicalAND {
+	a;
+	b;
+
+	exec(i, context) {
+		if (this.b) {
+			let a = i.exec(this.a);
+			let b = i.exec(this.b);
+
+			let r = i.exec_overload(context, OVERLOAD_OP, "operator&&", [a, b]);
+
+			if (r) {
+				return r;
+			} else {
+				i.trap(`cant execute op ${a.type.tr.description} && ${a.type.tr.description}`);
+			}
+		} else {
+			return i.exec(this.a);
+		}
+	}
+	
+	static parse(p) {
+		let r = new CJSLogicalAND();
+		let t;
+
+		if (t = p.parse(CJSEquality)) {
+			r.a = t;
+			p.eat_ws();
+			if (p.src[p.pos] == "&") {
+				p.pos++;
+				if (p.src[p.pos] == "&") {
+					p.pos++;
+					p.eat_ws();
+					if (t = p.parse(CJSLogicalAND)) {
+						r.b = t;
+						return r;
+					}
+				}
+			} else {
+				return r;
+			}
+		}
+	}
+}
+
+export class CJSLogicalOR {
+	a;
+	b;
+
+	exec(i, context) {
+		if (this.b) {
+			let a = i.exec(this.a);
+			let b = i.exec(this.b);
+
+			let r = i.exec_overload(context, OVERLOAD_OP, "operator||", [a, b]);
+
+			if (r) {
+				return r;
+			} else {
+				i.trap(`cant execute op ${a.type.tr.description} || ${a.type.tr.description}`);
+			}
+		} else {
+			return i.exec(this.a);
+		}
+	}
+	
+	static parse(p) {
+		let r = new CJSLogicalOR();
+		let t;
+
+		if (t = p.parse(CJSLogicalAND)) {
+			r.a = t;
+			p.eat_ws();
+			if (p.src[p.pos] == "|") {
+				p.pos++;
+				if (p.src[p.pos] == '|') {
+					p.pos++;
+					p.eat_ws();
+					if (t = p.parse(CJSLogicalOR)) {
+						r.b = t;
+						return r;
+					}
+				}
+			} else {
+				return r;
 			}
 		}
 	}
@@ -591,7 +784,7 @@ export class CJSConditional {
 		let r = new CJSConditional();
 		let t;
 
-		if (t = p.parse(CJSEquality)) {
+		if (t = p.parse(CJSLogicalOR)) {
 			r.a = t;
 			p.eat_ws();
 			if (p.src[p.pos] == "?") {
@@ -625,12 +818,12 @@ export class CJSAssignment {
 			let a = context.getv(this.a);
 			let b = i.exec(this.b);
 			
-			let r = i.exec_op(context, a, '=', b);
+			let r = i.exec_overload(context, OVERLOAD_OP, 'operator=', [a, b]);
 			
 			if (r) {
 				return r;
 			} else {
-				i.trap(`cant execute op ${a.type.tr.description} / ${a.type.tr.description}`);
+				i.trap(`cant execute op ${a.type.tr.description} = ${a.type.tr.description}`);
 			}
 		} else {
 			return i.exec(this.b);
@@ -648,7 +841,7 @@ export class CJSAssignment {
 			if (p.src[p.pos] == "=") {
 				p.pos++;
 				p.eat_ws();
-				if (t = p.parse(CJSConditional)) {
+				if (t = p.parse(CJSAssignment)) {
 					r.b = t;
 					p.drop();
 					return r;
@@ -988,43 +1181,49 @@ export class CJSInterpreter {
 		}
 	}
 
-	exec_op(c, a, o, b) {
+	exec_overload(c, mode, name, args) {
 		let canidates = [];
-		
-//		console.group(`resolve ${a.type.tr.description} ${o} ${b.type.tr.description}`);
+
+//		console.group(`resolve ${name}(${args.flatMap((a)=>{return a.type.tr.description;})})`);
 //		console.group(`find canidates`);
-//		console.group(`search members of`, a.type);
-		if (a.type.ops[o]) {
-			let k = Object.getOwnPropertySymbols(a.type.ops[o]);
-			for (let i = 0; i < k.length; i++) {
-				let c = a.type.ops[o][k[i]];
-				canidates.push(c);
-//				console.log(`canidate`, c);
-			}
+//		console.group(`search members of`, args[0].type);
+		if (mode == OVERLOAD_OP) {
+			if (args[0].type.methods[name]) 
+				canidates.push(...args[0].type.methods[name]);
 		}
 //		console.groupEnd();
 //		console.groupEnd();
 //		console.group(`prune non-viable from`, canidates);
 		for (let i = 0; i < canidates.length; i++) {
 //			console.group(`check`, canidates[i]);
-			do {
+			out: do {
 				let f = canidates[i];
-				if (f.args.length != 2) {
+				if (f.args.length != args.length) {
 //					console.log(`argument count mismatch ${f.args.length} != 2`);
 //					console.log(`drop`, f);
 					canidates.splice(i, 1);
 					break;
 				}
-				if (f.args[1].tr != b.type.tr) {
-//					console.group(`find implicit conversion for argument 1 `, b.type, `->`, f.args[1]);
-					if (!b.type.ops[f.args[1].tr]) {
-//						console.log(`cast to`, f.args[1], `not found`);
+				_L2: for (let i = 1; i < args.length; i++) {
+					if (f.args[i].tr != args[i].type.tr) {
+//						console.group(`find implicit conversion for argument 1 `, args[i].type, `->`, f.args[i]);
+						if (args[i].type.methods["operatorcast"]) {
+							let methods = args[i].type.methods["operatorcast"];
+							for (let ii = 0; ii < methods.length; ii++) {
+//								console.log(methods[ii].retv.tr, f.args[i].tr)
+								if (methods[ii].retv.tr == f.args[i].tr) {
+//									console.log("found", methods[ii]);
+//									console.groupEnd();
+									continue _L2;
+								}
+							}
+						}
+//						console.log(`cast to`, f.args[i], `not found`);
 //						console.log(`drop`, f);
+//						console.groupEnd();
 						canidates.splice(i, 1);
-						break;
+						break out;
 					}
-//					console.log(`found`, b.type.ops[f.args[1].tr])
-//					console.groupEnd();
 				}
 //				console.log(`keep`, f)
 			} while (false);
@@ -1089,8 +1288,9 @@ export class CJSInterpreter {
 			this.trap("type error");
 		}
 //		console.groupEnd();
+//		console.groupEnd();
 
-		return best.call([a, b]);
+		return best.call(args);
 	}
 	
 	exec_script(script) {
@@ -1105,215 +1305,320 @@ export class CJSInterpreter {
 		float_t.tr   = Symbol("float");
 		invalid_t.tr = Symbol("invalid");
 		
-		int_t.ops = {
-			[float_t.tr]: CJSBoundFunction.bind([int_t], float_t, (x) => {
-				let r = new CJSValue();
-	
-				r.type = float_t;
-				r.value = x.value;
-	
-				return r;
-			}),
-			'^': {
-				[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type  = int_t;
-					r.value = x.value ** y.value;
-
-					return r;
-				})
-			},
-			'*': {
-				[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = int_t;
-					r.value = x.value * y.value;
-
-					return r;
-				})
-			},
-			'/': {
-				[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], float_t, (x, y) => {
-					let r = new CJSValue();
-
-					if (y.value == 0) {
-						this.trap("divide by zero");
-					}
-
-					r.type = float_t;
-					r.value = x.value / y.value;
-
-					return r;
-				})
-			},
-			'%': {
-				[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = int_t;
-					r.value = x.value % y.value;
-
-					return r;
-				})
-			},
-			'+': {
-				[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = int_t;
-					r.value = x.value + y.value;
-
-					return r;
-				})
-			},
-			'-': {
-				[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = int_t;
-					r.value = x.value - y.value;
-
-					return r;
-				})
-			},
-			'=': {
-				[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = int_t;
-					r.value = x.value = y.value;
-
-					return r;
-				})
-			},
-			"==": {
-				[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = int_t;
-					r.value = x.value == y.value;
-
-					return r;
-				})
-			},
-			"!=": {
-				[int_t.tr]: CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = int_t;
-					r.value = x.value != y.value;
-
-					return r;
-				})
-			}
-		}
-
-		float_t.ops = {
-			[int_t.tr]: CJSBoundFunction.bind([float_t], int_t, (x) => {
-				let r = new CJSValue();
 		
-				r.type  = int_t;
-				r.value = Math.trunc(x.value);
-	
-				return r;
-			}),
-			'^': {
-				[float_t.tr]: CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-					let r = new CJSValue();
+		int_t.bind_method("operatorcast", CJSBoundFunction.bind([int_t], float_t, (x) => {
+			let r = new CJSValue();
 
-					r.type  = float_t;
-					r.value = x.value ** y.value;
+			r.type = float_t;
+			r.value = x.value;
 
-					return r;
-				})
-			},
-			'*': {
-				[float_t.tr]: CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-					let r = new CJSValue();
+			return r;
+		}));
 
-					r.type = float_t;
-					r.value = x.value * y.value;
+		int_t.bind_method("operator**", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
 
-					return r;
-				})
-			},
-			'/': {
-				[float_t.tr]: CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-					let r = new CJSValue();
+			r.type  = int_t;
+			r.value = x.value ** y.value;
 
-					if (b.value == 0) {
-						this.trap("divide by zero");
-					}
+			return r;
+		}));
+		
+		int_t.bind_method("operator*", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
 
-					r.type = float_t;
-					r.value = x.value / y.value;
+			r.type = int_t;
+			r.value = x.value * y.value;
 
-					return r;
-				})
-			},
-			'%': {
-				[float_t.tr]: CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-					let r = new CJSValue();
+			return r;
+		}));
 
-					r.type = float_t;
-					r.value = x.value % y.value;
+		int_t.bind_method("operator/", CJSBoundFunction.bind([int_t, int_t], float_t, (x, y) => {
+			let r = new CJSValue();
 
-					return r;
-				})
-			},
-			'+': {
-				[float_t.tr]: CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = float_t;
-					r.value = x.value + y.value;
-
-					return r;
-				})
-			},
-			'-': {
-				[float_t.tr]: CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = float_t;
-					r.value = x.value - y.value;
-
-					return r;
-				})
-			},
-			'=': {
-				[float_t.tr]: CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = float_t;
-					r.value = x.value = y.value;
-
-					return r;
-				})
-			},
-			"==": {
-				[float_t.tr]: CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = float_t;
-					r.value = x.value == y.value;
-
-					return r;
-				})
-			},
-			"!=": {
-				[float_t.tr]: CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
-					let r = new CJSValue();
-
-					r.type = float_t;
-					r.value = x.value != y.value;
-
-					return r;
-				})
+			if (y.value == 0) {
+				this.trap("divide by zero");
 			}
-		}
+
+			r.type = float_t;
+			r.value = x.value / y.value;
+
+			return r;
+		}));
+
+		int_t.bind_method("operator%", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value % y.value;
+
+			return r;
+		}))
+		
+		int_t.bind_method("operator+", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value + y.value;
+
+			return r;
+		}));
+
+		int_t.bind_method("operator-", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value - y.value;
+
+			return r;
+		}));
+
+		int_t.bind_method("operator=", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value = y.value;
+
+			return r;
+		}));
+
+		int_t.bind_method("operator==", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value == y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		int_t.bind_method("operator!=", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value != y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		int_t.bind_method("operator<", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value < y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		int_t.bind_method("operator>", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value > y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		int_t.bind_method("operator<=", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value <= y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		int_t.bind_method("operator>=", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value >= y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		int_t.bind_method("operator&&", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value && y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		int_t.bind_method("operator||", CJSBoundFunction.bind([int_t, int_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value || y.value ? 1 : 0;
+
+			return r;
+		})); // i have typed this stupid fucking int_t.bind_method over and over why the fuck did i do this
+
+		int_t.bind_method("operator!", CJSBoundFunction.bind([int_t], int_t, (x) => {
+			let r = new CJSValue();
+	
+			r.type = int_t;
+			r.value = !x.value ? 1 : 0;
+	
+			return r;
+		}));
+
+		float_t.bind_method("operatorcast", CJSBoundFunction.bind([float_t], int_t, (x) => {
+			let r = new CJSValue();
+	
+			r.type  = int_t;
+			r.value = Math.trunc(x.value);
+	
+			return r;
+		}));
+
+		float_t.bind_method("operator**", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type  = float_t;
+			r.value = x.value ** y.value;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator*", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = float_t;
+			r.value = x.value * y.value;
+
+			return r;
+		}))
+
+		float_t.bind_method("operator/", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
+			let r = new CJSValue();
+
+			if (b.value == 0) {
+				this.trap("divide by zero");
+			}
+
+			r.type = float_t;
+			r.value = x.value / y.value;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator%", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = float_t;
+			r.value = x.value % y.value;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator+", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = float_t;
+			r.value = x.value + y.value;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator-", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = float_t;
+			r.value = x.value - y.value;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator=", CJSBoundFunction.bind([float_t, float_t], float_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = float_t;
+			r.value = x.value = y.value;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator==", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value == y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator!=", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value != y.value ? 1 : 0;
+
+			return r;
+		})); // dont you love it when shitty teachers flood you with work and a skit every 2 weeks.
+
+		float_t.bind_method("operator>", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value > y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator<", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value < y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator>=", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value >= y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator<=", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value <= y.value ? 1 : 0;
+
+			return r;
+		}));
+		
+		float_t.bind_method("operator&&", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value && y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator||", CJSBoundFunction.bind([float_t, float_t], int_t, (x, y) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = x.value || y.value ? 1 : 0;
+
+			return r;
+		}));
+
+		float_t.bind_method("operator!", CJSBoundFunction.bind([float_t], int_t, (x) => {
+			let r = new CJSValue();
+
+			r.type = int_t;
+			r.value = !x.value;
+
+			return r;
+		}));
 		
 		globals.types["int"]   = int_t;
 		globals.types["float"] = float_t;
