@@ -21,7 +21,9 @@ function parse(e) {
 	return p.parse(cjs.CJSStatementList);
 }
 
-function exec(src) {
+function exec(src, ob) {
+	ob.textContent = "";
+	
 	console.log(src.split(""))
 	let res = parse(src);
 
@@ -32,16 +34,16 @@ function exec(src) {
 	console.log(res);
 
 	let int = new cjs.CJSInterpreter();
+	int.on_stdout = (data) => {
+		ob.textContent += data;
+		console.log(ob)
+	}
 
 	try {
 		res = int.exec_script(res);
 	} catch (e) {
-		if (/^\[!VM{/.test(e)) {
-			res = {value:e};
-			console.log(res);
-		} else {
-			throw e;
-		}
+		console.log(cjs.disassemble(int.code));
+		throw e;
 	}
 
 	if (res) {
@@ -94,14 +96,14 @@ async function main() {
 	input_thing = document.getElementById("src");
 	input_thing.addEventListener("input", () => {
 		if (autoexec.value) {
-			output_thing.textContent = exec(input_thing.value);
+			exec(input_thing.value, output_thing);
 		}
 	});
 
 	output_thing = document.getElementById("output");
 
 	execbutton.addEventListener("click", () => {
-		output_thing.textContent = exec(input_thing.value);
+		exec(input_thing.value, output_thing);
 	})
 }
 
