@@ -134,7 +134,6 @@
 	padding: 4px;
 	border-radius: var(--xu-menu-radius);
 	box-shadow: 0px 0px 2px 1px var(--xu-menu-shadow-color);
-	margin-top: 1px;
 	height: 100%;
 }
 
