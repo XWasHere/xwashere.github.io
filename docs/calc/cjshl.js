@@ -190,7 +190,7 @@ export class CJSTextAreaElement extends HTMLElement {
 					tokens.push(ct);
 					ct = { type: "number", data: this.__value[i], line: cy };
 				}
-			} else if (/\p{ID_Start}/u.test(this.__value[i]) && ct.type != "identifier") {
+			} else if (/[_\p{ID_Start}]/u.test(this.__value[i]) && ct.type != "identifier") {
 				tokens.push(ct);
 				ct = { type: "identifier", data: this.__value[i], line: cy };
 			} else if (/\p{ID_Continue}/u.test(this.__value[i]) && ct.type == "identifier") {
@@ -231,7 +231,8 @@ export class CJSTextAreaElement extends HTMLElement {
 				if (tokens[i].type == "identifier") {
 					let t = document.createElement("span");
 					if (tokens[i].data == "if" || 
-						tokens[i].data == "else") {
+						tokens[i].data == "else" ||
+					    tokens[i].data == "while") {
 						tokens[i].type = "keyword";
 						t.className = "token_keyword";
 					} else if (tokens[i + 1]?.type == "whitespace" && tokens[i + 2]?.type == "identifier") {
@@ -387,8 +388,9 @@ export class CJSTextAreaElement extends HTMLElement {
 						this.cursor_pos++;
 					}
 				} else if (e.inputType == "insertParagraph") {
-					let sc = 0, tc = 0;
-					for (let i = this.cursor_pos; this.__value[i] != '\n' && i > 0; i--) sc = i;
+					let sc = 0;
+					let tc = 0;
+					for (let i = this.cursor_pos - 1; this.__value[i] != '\n' && i > 0; i--) sc = i;
 					for (let i = sc; this.__value[i] == '\t' && i < this.__value.length; i++) tc++;
 					if (this.__value[this.cursor_pos - 1] == '(' && this.__value[this.cursor_pos] == ')' || this.__value[this.cursor_pos - 1] == '{' && this.value[this.cursor_pos] == '}') {
 						this.__value = `${this.__value.slice(0, this.cursor_pos)}\n${"".padStart(tc + 1, "\t")}\n${"".padStart(tc, "\t")}${this.__value.slice(this.cursor_pos)}`;
