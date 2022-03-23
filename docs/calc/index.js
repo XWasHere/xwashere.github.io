@@ -36,7 +36,7 @@ function exec(src, ob) {
 	let int = new cjs.CJSInterpreter();
 	int.on_stdout = (data) => {
 		ob.textContent += data;
-		console.log(ob)
+		//console.log(ob)
 	}
 
 	try {
