@@ -2687,6 +2687,12 @@ export class CJSInterpreter {
 					a:    c2(s.a),
 					b:    c2(s.b)
 				}]
+			} else if (s.type == "modulus") {
+				return [{
+					type: "modulus",
+					a:    c2(s.a),
+					b:    c2(s.b)
+				}]
 			} else if (s.type == "divide") {
 				return [{
 					type: "divide",
@@ -3176,6 +3182,45 @@ export class CJSInterpreter {
 						args:  [{type: "int"}, {type: "int"}],
 						rtype: "int"
 					});
+				} else if (name == "operator%") {
+					canidates.push({
+						name:  "std_ff_operator%",
+						std:   1,
+						args:  [{type: "float"}, {type: "float"}],
+						rtype: "float"
+					});
+					canidates.push({
+						name:  "std_ii_operator%",
+						std:   1,
+						args:  [{type: "int"}, {type: "int"}],
+						rtype: "int"
+					});
+				} else if (name == "operator-") {
+					canidates.push({
+						name:  "std_ff_operator-",
+						std:   1,
+						args:  [{type: "float"}, {type: "float"}],
+						rtype: "float"
+					});
+					canidates.push({
+						name:  "std_ii_operator-",
+						std:   1,
+						args:  [{type: "int"}, {type: "int"}],
+						rtype: "int"
+					});
+				} else if (name == "operator*") {
+					canidates.push({
+						name:  "std_ff_operator*",
+						std:   1,
+						args:  [{type: "float"}, {type: "float"}],
+						rtype: "float"
+					});
+					canidates.push({
+						name:  "std_ii_operator*",
+						std:   1,
+						args:  [{type: "int"}, {type: "int"}],
+						rtype: "int"
+					});
 				}
 			} else if (mode == OVERLOAD_FUNCTION) {
 				for (let i = c; i; i = i.parent) 
@@ -3421,6 +3466,75 @@ export class CJSInterpreter {
 					s.otype = "float";
 				} else if (ov.fn.name == "std_ii_operator+") {
 					s.type = "add_int";
+					s.otype = "int";
+				}
+			} else if (s.type == "modulus") {
+				ct(s.a, sc);
+				ct(s.b, sc);
+
+				let t1 = s.a.otype;
+				let t2 = s.b.otype;
+				
+				let ov = ct_select_overload(sc, OVERLOAD_OP, "operator%", [{type:t1}, {type:t2}]);
+//				console.log(ov);
+
+				let nva = ct_gen_conversion_ops(s.a, ov.cv[0]);
+				let nvb = ct_gen_conversion_ops(s.b, ov.cv[1]);
+
+				s.a = nva;
+				s.b = nvb;
+
+				if (ov.fn.name == "std_ff_operator%") {
+					s.type = "mod_float";
+					s.otype = "float";
+				} else if (ov.fn.name == "std_ii_operator%") {
+					s.type = "mod_int";
+					s.otype = "int";
+				}
+			} else if (s.type == "multiply") {
+				ct(s.a, sc);
+				ct(s.b, sc);
+
+				let t1 = s.a.otype;
+				let t2 = s.b.otype;
+				
+				let ov = ct_select_overload(sc, OVERLOAD_OP, "operator*", [{type:t1}, {type:t2}]);
+//				console.log(ov);
+
+				let nva = ct_gen_conversion_ops(s.a, ov.cv[0]);
+				let nvb = ct_gen_conversion_ops(s.b, ov.cv[1]);
+
+				s.a = nva;
+				s.b = nvb;
+
+				if (ov.fn.name == "std_ff_operator*") {
+					s.type = "mul_float";
+					s.otype = "float";
+				} else if (ov.fn.name == "std_ii_operator*") {
+					s.type = "mul_int";
+					s.otype = "int";
+				}
+			} else if (s.type == "subtract") {
+				ct(s.a, sc);
+				ct(s.b, sc);
+
+				let t1 = s.a.otype;
+				let t2 = s.b.otype;
+				
+				let ov = ct_select_overload(sc, OVERLOAD_OP, "operator-", [{type:t1}, {type:t2}]);
+//				console.log(ov);
+
+				let nva = ct_gen_conversion_ops(s.a, ov.cv[0]);
+				let nvb = ct_gen_conversion_ops(s.b, ov.cv[1]);
+
+				s.a = nva;
+				s.b = nvb;
+
+				if (ov.fn.name == "std_ff_operator-") {
+					s.type = "sub_float";
+					s.otype = "float";
+				} else if (ov.fn.name == "std_ii_operator-") {
+					s.type = "sub_int";
 					s.otype = "int";
 				}
 			} else {
@@ -3689,7 +3803,7 @@ export class CJSInterpreter {
 					rr: a.rr,
 					rt: a.rt
 				}
-			} else if (s.type == "subtract") {
+			} else if (s.type == "sub_int") {
 				let a = cf(s.a, nr, c);
 				let b = cf(s.b, a.rr+1, c);
 
@@ -3702,7 +3816,7 @@ export class CJSInterpreter {
 					rr: a.rr,
 					rt: a.rt
 				}
-			} else if (s.type == "multiply") {
+			} else if (s.type == "mul_int") {
 				let a = cf(s.a, nr, c);
 				let b = cf(s.b, a.rr+1, c);
 
@@ -3728,7 +3842,7 @@ export class CJSInterpreter {
 					rr: a.rr,
 					rt: "float"
 				}
-			} else if (s.type == "modulus") {
+			} else if (s.type == "mod_int") {
 				let a = cf(s.a, nr, c);
 				let b = cf(s.b, a.rr+1, c);
 
