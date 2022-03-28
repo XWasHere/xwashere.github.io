@@ -189,6 +189,13 @@ export function disassemble(code) {
 				let r2 = baseline_reg();
 
 				disassembly += `ge ${r2}, ${r1}`;
+			} else if (code.code[i] == CJS_OP_PWR) {
+				i++;
+
+				let r1 = baseline_reg();
+				let r2 = baseline_reg();
+
+				disassembly += `pwr ${r2}, ${r1}`;
 			} else if (code.code[i] == CJS_OP_LE) {
 				i++;
 
@@ -293,6 +300,12 @@ export function disassemble(code) {
 				i++;
 
 				disassembly += `ret`;
+			} else if (code.code[i] == CJS_OP_ICONVF) {
+				i++;
+
+				let reg = baseline_reg();
+
+				disassembly += `iconvf ${reg}`;
 			} else {
 				i++;
 				
@@ -1733,35 +1746,37 @@ export class CJSCode {
 	}
 }
 
-export const CJS_OP_NOOP  = 0x00;
-export const CJS_OP_DVAR  = 0x01;
-export const CJS_OP_LDI32 = 0x02;
-export const CJS_OP_ADD   = 0x03;
-export const CJS_OP_SUB   = 0x04;
-export const CJS_OP_MUL   = 0x05;
-export const CJS_OP_DIV   = 0x06;
-export const CJS_OP_MOD   = 0x07;
-export const CJS_OP_LGAND = 0x08;
-export const CJS_OP_LGNOT = 0x09;
-export const CJS_OP_LGOR  = 0x0a;
-export const CJS_OP_EQ    = 0x0b;
-export const CJS_OP_NEQ   = 0x0c;
-export const CJS_OP_LT    = 0x0d;
-export const CJS_OP_GT    = 0x0e;
-export const CJS_OP_LE    = 0x0f;
-export const CJS_OP_GE    = 0x10;
-export const CJS_OP_NEG   = 0x11;
-export const CJS_OP_SVAR  = 0x12;
-export const CJS_OP_GVAR  = 0x13;
-export const CJS_OP_JMP   = 0x14;
-export const CJS_OP_JT    = 0x15;
-export const CJS_OP_JF    = 0x16;
-export const CJS_OP_PUSH  = 0x17;
-export const CJS_OP_POP   = 0x18;
-export const CJS_OP_MOV   = 0x19;
-export const CJS_OP_CALL  = 0x1a;
-export const CJS_OP_HCALL = 0x1b;
-export const CJS_OP_RET   = 0x1c;
+export const CJS_OP_NOOP   = 0x00;
+export const CJS_OP_DVAR   = 0x01;
+export const CJS_OP_LDI32  = 0x02;
+export const CJS_OP_ADD    = 0x03;
+export const CJS_OP_SUB    = 0x04;
+export const CJS_OP_MUL    = 0x05;
+export const CJS_OP_DIV    = 0x06;
+export const CJS_OP_MOD    = 0x07;
+export const CJS_OP_LGAND  = 0x08;
+export const CJS_OP_LGNOT  = 0x09;
+export const CJS_OP_LGOR   = 0x0a;
+export const CJS_OP_EQ     = 0x0b;
+export const CJS_OP_NEQ    = 0x0c;
+export const CJS_OP_LT     = 0x0d;
+export const CJS_OP_GT     = 0x0e;
+export const CJS_OP_LE     = 0x0f;
+export const CJS_OP_GE     = 0x10;
+export const CJS_OP_NEG    = 0x11;
+export const CJS_OP_SVAR   = 0x12;
+export const CJS_OP_GVAR   = 0x13;
+export const CJS_OP_JMP    = 0x14;
+export const CJS_OP_JT     = 0x15;
+export const CJS_OP_JF     = 0x16;
+export const CJS_OP_PUSH   = 0x17;
+export const CJS_OP_POP    = 0x18;
+export const CJS_OP_MOV    = 0x19;
+export const CJS_OP_CALL   = 0x1a;
+export const CJS_OP_HCALL  = 0x1b;
+export const CJS_OP_RET    = 0x1c;
+export const CJS_OP_ICONVF = 0x1d;
+export const CJS_OP_PWR    = 0x1e;
 
 // 2 bit oprand type  (0 = reg, 1 = mem, 2 = const);
 // 2 bit oprand size  (00 = 1 byte, 01 = 2 bytes, 10 = 4 bytes, 11 = 8 bytes)
@@ -2233,9 +2248,9 @@ export class CJSInterpreter {
 		
 		// TODO(X): remove when varadic args are done and printf is added
 		this.register_host_method("_private_put", [float_t], int_t, (i) => {
-			let vl = i.stack.pop();
+			let vl = i.memoryv.getFloat32(i.registers[CJS_REG_SP]);
 
-			if (this.on_stdout) this.on_stdout(vl.value.toString())
+			if (this.on_stdout) this.on_stdout(vl.toString())
 		});
 		
 		this.push_context(globals); 
@@ -2282,6 +2297,10 @@ export class CJSInterpreter {
 				args: args
 			};
 		}
+
+		function c1_paren_expr(s) {
+			return c1_conditional(s.expr);
+		}
 		
 		function c1_primary(s) {
 			if (s.a instanceof CJSNumber) {
@@ -2290,6 +2309,8 @@ export class CJSInterpreter {
 				return c1_identifier(s.a);
 			} else if (s.a instanceof CJSCall) {
 				return c1_call(s.a);
+			} else if (s.a instanceof CJSParenExpr) {
+				return c1_paren_expr(s.a);
 			} else {
 				console.log("C1-INV", s);
 			}
@@ -2558,6 +2579,14 @@ export class CJSInterpreter {
 				expr: s.expr?c1_assignment(s.expr):null
 			};
 		} 
+
+		function c1_while_statement(s) {
+			return {
+				type: "while",
+				expr: c1_assignment(s.expr),
+				code: c1_statement(s.things)
+			}
+		}
 		
 		function c1_statement(s) {
 			if (s.expr instanceof CJSExpressionStatement) {
@@ -2574,6 +2603,8 @@ export class CJSInterpreter {
 				return c1_host_declaration(s.expr);
 			} else if (s.expr instanceof CJSReturnStatement) {
 				return c1_return_statement(s.expr);
+			} else if (s.expr instanceof CJSWhileStatement) {
+				return c1_while_statement(s.expr);
 			} else {
 				console.log("C1-INV", s);
 				return {
@@ -2808,6 +2839,18 @@ export class CJSInterpreter {
 						}
 					]
 				}
+			} else if (s.type == "power") {
+				return [{
+					type: "power",
+					a: c2(s.a),
+					b: c2(s.b)
+				}];
+			} else if (s.type == "while") {
+				return [{
+					type: "while",
+					expr: c2(s.expr),
+					code: c2(s.code)
+				}]
 			} else {
 				console.log("C2-INV", s);
 				return [null];
@@ -2865,6 +2908,29 @@ export class CJSInterpreter {
 						name: s.name
 					}
 				]
+			} else if (s.type == "while") {
+				let expr = [];
+				let code = [];
+
+				for (let i = 0; i < s.expr.length; i++) {
+					expr.push(...c3(s.expr[i], c));
+				}
+
+				for (let i = 0; i < s.code.length; i++) {
+					code.push(...c3(s.code[i], c))
+				}
+
+				return [
+					...expr.splice(0, expr.length - 1),
+					{
+						type: "while",
+						expr: expr[expr.length - 1],
+						code: {
+							type:  "expression_list",
+							exprs: code
+						}
+					}
+				]
 			} else if (s.type == "if_statement") {
 				let expr = [];
 				for (let i = 0; i < s.expr.length; i++) {
@@ -2910,7 +2976,8 @@ export class CJSInterpreter {
 					  s.type == "greater_than" ||
 					  s.type == "less_than" ||
 					  s.type == "greater_equal" ||
-					  s.type == "less_equal") {
+					  s.type == "less_equal" ||
+					  s.type == "power") {
 				let a = [];
 				for (let i = 0; i < s.a.length; i++) {
 					a.push(...c3(s.a[i], c));
@@ -3026,18 +3093,19 @@ export class CJSInterpreter {
 		//#endregion
 
 		//#region cs - symbols
-		function cs(s, sc) {
+		function cs(s, sc, ctx) {
 			if (s.type == "expression_list") {
 				s.scope = {
 					parent: sc ?? null,
 					symbols: [],
-					global: 0
+					global: 0,
+					type: ctx
 				};
 
 				if (sc == undefined) {
 					s.scope.global = 1;
 				}
-				
+
 				for (let i = 0; i < s.exprs.length; i++) cs(s.exprs[i], s.scope);
 
 				return s;
@@ -3050,8 +3118,8 @@ export class CJSInterpreter {
 				});
 			} else if (s.type == "if_statement") {
 				cs(s.expr, sc);
-				cs(s.ifs, sc);
-				if (s.elses) cs(s.elses, sc);
+				cs(s.ifs, sc, "if");
+				if (s.elses) cs(s.elses, sc, "if");
 			} else if (s.type == "decl_function") {
 				sc.symbols.push({
 					type:  "function",
@@ -3065,7 +3133,7 @@ export class CJSInterpreter {
 					})
 				});
 
-				cs(s.code, sc);
+				cs(s.code, sc, "function");
 
 				for (let i = 0; i < s.args.length; i++) {
 					s.code.scope.symbols.push({
@@ -3086,6 +3154,9 @@ export class CJSInterpreter {
 						args:  s.args
 					})
 				});
+			} else if (s.type == "while") {
+				cs(s.expr, sc);
+				cs(s.code, sc, "while");
 			} else {
 				//console.log("CS-INV", s);
 			}
@@ -3112,7 +3183,7 @@ export class CJSInterpreter {
 				if (t1.type == a) { 
 					return [...cvs];
 				}
-				
+
 				// we only do floating point conversions right now.
 				if (t1.type == "float" && a == "int") {
 					return [...cvs, {op: "float_trunc", type: "int"}];
@@ -3124,7 +3195,7 @@ export class CJSInterpreter {
 			}
 
 			let s1 = ct_gen_std_conversions([{op: "source", type: b}]);
-
+			
 			return s1;
 		}
 
@@ -3195,6 +3266,19 @@ export class CJSInterpreter {
 						args:  [{type: "int"}, {type: "int"}],
 						rtype: "int"
 					});
+				} else if (name == "operator/") {
+					canidates.push({
+						name:  "std_ff_operator/",
+						std:   1,
+						args:  [{type: "float"}, {type: "float"}],
+						rtype: "float"
+					});
+					canidates.push({
+						name:  "std_ii_operator/",
+						std:   1,
+						args:  [{type: "int"}, {type: "int"}],
+						rtype: "int"
+					});
 				} else if (name == "operator-") {
 					canidates.push({
 						name:  "std_ff_operator-",
@@ -3217,6 +3301,84 @@ export class CJSInterpreter {
 					});
 					canidates.push({
 						name:  "std_ii_operator*",
+						std:   1,
+						args:  [{type: "int"}, {type: "int"}],
+						rtype: "int"
+					});
+				} else if (name == "operator**") {
+					canidates.push({
+						name:  "std_ff_operator**",
+						std:   1,
+						args:  [{type: "float"}, {type: "float"}],
+						rtype: "float"
+					});
+					canidates.push({
+						name:  "std_ii_operator**",
+						std:   1,
+						args:  [{type: "int"}, {type: "int"}],
+						rtype: "int"
+					});
+				} else if (name == "operator||") {
+					canidates.push({
+						name:  "std_ff_operator||",
+						std:   1,
+						args:  [{type: "float"}, {type: "float"}],
+						rtype: "float"
+					});
+					canidates.push({
+						name:  "std_ii_operator||",
+						std:   1,
+						args:  [{type: "int"}, {type: "int"}],
+						rtype: "int"
+					});
+				} else if (name == "operator&&") {
+					canidates.push({
+						name:  "std_ff_operator&&",
+						std:   1,
+						args:  [{type: "float"}, {type: "float"}],
+						rtype: "float"
+					});
+					canidates.push({
+						name:  "std_ii_operator&&",
+						std:   1,
+						args:  [{type: "int"}, {type: "int"}],
+						rtype: "int"
+					});
+				} else if (name == "operator!") {
+					canidates.push({
+						name:  "std_f_operator!",
+						std:   1,
+						args:  [{type: "float"}],
+						rtype: "float"
+					});
+					canidates.push({
+						name:  "std_i_operator!",
+						std:   1,
+						args:  [{type: "int"}],
+						rtype: "int"
+					});
+				} else if (name == "operator<") {
+					canidates.push({
+						name:  "std_ff_operator<",
+						std:   1,
+						args:  [{type: "float"}, {type: "float"}],
+						rtype: "float"
+					});
+					canidates.push({
+						name:  "std_ii_operator<",
+						std:   1,
+						args:  [{type: "int"}, {type: "int"}],
+						rtype: "int"
+					});
+				} else if (name == "operator>") {
+					canidates.push({
+						name:  "std_ff_operator>",
+						std:   1,
+						args:  [{type: "float"}, {type: "float"}],
+						rtype: "float"
+					});
+					canidates.push({
+						name:  "std_ii_operator>",
 						std:   1,
 						args:  [{type: "int"}, {type: "int"}],
 						rtype: "int"
@@ -3260,7 +3422,7 @@ export class CJSInterpreter {
 						let i1 = [];
 						let f1 = canidates[i]
 						for (let i = 0; i < f1.args.length; i++) {
-							let cv = ct_gen_conversions(args[i].type, f1.args[i].type, c);
+							let cv = ct_gen_conversions(f1.args[i].type, args[i].type, c);
 
 							let rank = 2;
 							for (let i = 0; i < cv.length; i++) {
@@ -3276,12 +3438,12 @@ export class CJSInterpreter {
 					} else {
 						let f1 = canidates[i];
 						let f2 = best.fn;
-
+			
 						let i1 = [];
 						let i2 = [];
 
 						for (let i = 0; i < f1.args.length; i++) {
-							let cv = ct_gen_conversions(args[i].type, f1.args[i].type, c);
+							let cv = ct_gen_conversions(f1.args[i].type, args[i].type, c);
 
 							let rank = 2;
 							for (let i = 0; i < cv.length; i++) {
@@ -3293,14 +3455,15 @@ export class CJSInterpreter {
 								rank: rank
 							});
 						}
+						
 						for (let i = 0; i < f2.args.length; i++) {
-							let cv = ct_gen_conversions(args[i].type, f2.args[i].type, c);
+							let cv = ct_gen_conversions(f2.args[i].type, args[i].type, c);
 
 							let rank = 2;
 							for (let i = 0; i < cv.length; i++) {
 								rank = Math.min(rank, ct_rank_conversion(cv[i]));
 							}
-							
+
 							i2.push({
 								seq: cv,
 								rank: rank
@@ -3337,9 +3500,7 @@ export class CJSInterpreter {
 					}
 				} while (false);
 			}
-
-			//console.log(best);
-			
+	
 			return best;
 		}
 
@@ -3349,6 +3510,12 @@ export class CJSInterpreter {
 			for (let i = 0; i < cv.seq.length; i++) {
 				if (cv.seq[i].op == "source") {
 					val = val;
+				} else if (cv.seq[i].op == "int_conv_float") {
+					val = {
+						type: "int_conv_float",
+						otype: "float",
+						value: val
+					};
 				} else {
 					console.log("CVO-INV", cv.seq[i]);
 				}
@@ -3368,9 +3535,11 @@ export class CJSInterpreter {
 				ct(s.expr, sc);
 				ct(s.ifs, sc);
 				if (s.elses) ct(s.elses, sc);
+			} else if (s.type == "while") {
+				ct(s.expr, sc);
+				ct(s.code, sc);
 			} else if (s.type == "get_var") {
 				let v = ct_resolv_var(s.name, sc);
-				
 				s.otype = v.vtype;
 			} else if (s.type == "equal") {
 				ct(s.a, sc);
@@ -3415,6 +3584,10 @@ export class CJSInterpreter {
 
 //					console.log(sc)
 //					console.log(s, ov);
+
+					for (let i = 0; i < ov.cv.length; i++) {
+						s.args[i] = ct_gen_conversion_ops(s.args[i], ov.cv[i])
+					}
 					
 					s.sname = s.name;
 					s.name  = ov.fn.mname;
@@ -3514,6 +3687,29 @@ export class CJSInterpreter {
 					s.type = "mul_int";
 					s.otype = "int";
 				}
+			} else if (s.type == "power") {
+				ct(s.a, sc);
+				ct(s.b, sc);
+
+				let t1 = s.a.otype;
+				let t2 = s.b.otype;
+				
+				let ov = ct_select_overload(sc, OVERLOAD_OP, "operator**", [{type:t1}, {type:t2}]);
+//				console.log(ov);
+
+				let nva = ct_gen_conversion_ops(s.a, ov.cv[0]);
+				let nvb = ct_gen_conversion_ops(s.b, ov.cv[1]);
+
+				s.a = nva;
+				s.b = nvb;
+
+				if (ov.fn.name == "std_ff_operator**") {
+					s.type = "power_float";
+					s.otype = "float";
+				} else if (ov.fn.name == "std_ii_operator**") {
+					s.type = "power_int";
+					s.otype = "int";
+				}
 			} else if (s.type == "subtract") {
 				ct(s.a, sc);
 				ct(s.b, sc);
@@ -3537,6 +3733,94 @@ export class CJSInterpreter {
 					s.type = "sub_int";
 					s.otype = "int";
 				}
+			} else if (s.type == "logical_and") {
+				ct(s.a, sc);
+				ct(s.b, sc);
+
+				let t1 = s.a.otype;
+				let t2 = s.b.otype;
+				
+				let ov = ct_select_overload(sc, OVERLOAD_OP, "operator&&", [{type:t1}, {type:t2}]);
+//				console.log(ov);
+
+				let nva = ct_gen_conversion_ops(s.a, ov.cv[0]);
+				let nvb = ct_gen_conversion_ops(s.b, ov.cv[1]);
+
+				s.a = nva;
+				s.b = nvb;
+
+				if (ov.fn.name == "std_ff_operator&&") {
+					s.type = "logical_and_float";
+					s.otype = "float";
+				} else if (ov.fn.name == "std_ii_operator&&") {
+					s.type = "logical_and_int";
+					s.otype = "int";
+				}
+			} else if (s.type == "less_than") {
+				ct(s.a, sc);
+				ct(s.b, sc);
+
+				let t1 = s.a.otype;
+				let t2 = s.b.otype;
+				
+				let ov = ct_select_overload(sc, OVERLOAD_OP, "operator<", [{type:t1}, {type:t2}]);
+//				console.log(ov);
+
+				let nva = ct_gen_conversion_ops(s.a, ov.cv[0]);
+				let nvb = ct_gen_conversion_ops(s.b, ov.cv[1]);
+
+				s.a = nva;
+				s.b = nvb;
+
+				if (ov.fn.name == "std_ff_operator<") {
+					s.type = "less_than_float";
+					s.otype = "float";
+				} else if (ov.fn.name == "std_ii_operator<") {
+					s.type = "less_than_int";
+					s.otype = "int";
+				}
+			} else if (s.type == "logical_not") {
+				ct(s.a, sc);
+
+				let t1 = s.a.otype;
+				
+				let ov = ct_select_overload(sc, OVERLOAD_OP, "operator!", [{type:t1}]);
+//				console.log(ov);
+
+				let nva = ct_gen_conversion_ops(s.a, ov.cv[0]);
+
+				s.a = nva;
+
+				if (ov.fn.name == "std_f_operator!") {
+					s.type = "logical_not_float";
+					s.otype = "float";
+				} else if (ov.fn.name == "std_i_operator!") {
+					s.type = "logical_not_int";
+					s.otype = "int";
+				}
+			} else if (s.type == "divide") {
+				ct(s.a, sc);
+				ct(s.b, sc);
+
+				let t1 = s.a.otype;
+				let t2 = s.b.otype;
+				
+				let ov = ct_select_overload(sc, OVERLOAD_OP, "operator/", [{type:t1}, {type:t2}]);
+//				console.log(ov);
+
+				let nva = ct_gen_conversion_ops(s.a, ov.cv[0]);
+				let nvb = ct_gen_conversion_ops(s.b, ov.cv[1]);
+
+				s.a = nva;
+				s.b = nvb;
+
+				if (ov.fn.name == "std_ff_operator/") {
+					s.type = "div_float";
+					s.otype = "float";
+				} else if (ov.fn.name == "std_ii_operator/") {
+					s.type = "div_int";
+					s.otype = "int";
+				}
 			} else {
 				console.log("CT-INV", s);
 			}
@@ -3553,7 +3837,7 @@ export class CJSInterpreter {
 					let sym = s.scope.symbols[i];
 
 					if (sym.type == "argument") {
-						if (sym.vtype == "int") {
+						if (sym.vtype == "int" || "float") {
 							sym.size = 4;
 							if (!sym.global) {
 								sym.location = "stack";
@@ -3568,11 +3852,11 @@ export class CJSInterpreter {
 					let sym = s.scope.symbols[i];
 
 					if (sym.type == "variable") {
-						if (sym.vtype == "int") {
+						if (sym.vtype == "int" || sym.vtype == "float") {
 							sym.size = 4;
 							if (!sym.global) {
 								sym.location = "stack";
-								sym.spos = s.scope.tstacksize + s.scope.pstacksize;
+								sym.spos     = -s.scope.tstacksize - 4;
 								s.scope.tstacksize += 4;
 							}
 						}
@@ -3692,9 +3976,18 @@ export class CJSInterpreter {
 					if (c.symbols[i].name == name)
 						return c.symbols[i].type;
 		}
+
+		function cf_calc_pss(ctx) {
+			if (ctx.parent) {
+				if (ctx.parent.type == "function") {
+					return ctx.parent.pstacksize;
+				} else return cf_calc_pss(ctx.parent) + (ctx.pstacksize??0);
+			} else return ctx.pstacksize??0;
+		}
+		
 		let funcs = {};
 		let nlb = 0;
-		function cf(s, nr, c) {
+		function cf(s, nr, c, so) {
 			nr = nr ?? CJS_REG_G_;
 			if (s.type == "expression_list") {
 				let o = [];
@@ -3703,23 +3996,63 @@ export class CJSInterpreter {
 					o.push(...cf(s.exprs[i], nr, s.scope).o);
 				}
 
-				return {o:o};
-			} else if (s.type == "decl_var") {
-				//console.log(c);
-				//c.syms.push({ type: "variable", vtype: s.vtype, name: s.name });
 				return {o: [
-					CJS_OP_DVAR, ...cf_string(s.vtype), ...cf_string(s.name)
+					CJS_OP_SUB, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, CJS_REG_SP, CJS_OPRAND_TYPE_CONST | CJS_OPRAND_SIZE_INT, ...cf_int(s.scope.tstacksize),
+					...o,
+					CJS_OP_ADD, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, CJS_REG_SP, CJS_OPRAND_TYPE_CONST | CJS_OPRAND_SIZE_INT, ...cf_int(s.scope.tstacksize)
+				]};
+			} else if (s.type == "decl_var") {
+				let v = ct_resolv_var(s.name, c)
+				//console.log(v);
+				return {o: [
+				
 				]};
 			} else if (s.type == "set_var" || s.type == "set_var_int" || s.type == "set_var_float") {
-				let v = cf(s.value, nr, c)
-				//console.log(v);
-				return {
-					o: [
-						...v.o, 
-						CJS_OP_SVAR, v.rr, ...cf_string(s.name)
-					],
-					rr: -1
+				let value = cf(s.value, nr, c);
+				let v = ct_resolv_var(s.name, c);
+				if (v.location == "stack") {
+					let spos = v.spos;
+					console.log(spos);
+					if (v.vtype == "int") {
+						return {
+							o: [
+								...value.o,
+								CJS_OP_MOV, // mov [idx](%[base]), %[src]
+								  CJS_OPRAND_TYPE_MEM | CJS_OPRAND_SIZE_INT | CJS_OPRAND_HAS_OFFSET, // [idx](%[base])
+									CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, // (%[base])
+									  CJS_REG_BP, // %[base]
+									CJS_OPRAND_TYPE_CONST | CJS_OPRAND_SIZE_INT, // [idx]
+									  ...cf_int(spos), // [idx]
+								  CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, // %[src]
+									nr, // [src]
+							],
+							rr: nr
+						}
+					} else if (v.vtype == "float") {
+						return {
+							o: [
+								...value.o,
+								CJS_OP_MOV, // mov %[dst], [idx](%[base])
+								  CJS_OPRAND_TYPE_MEM | CJS_OPRAND_SIZE_INT | CJS_OPRAND_ITYPE_FLOAT | CJS_OPRAND_HAS_OFFSET, // [idx](%[base])
+									CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, // (%[base])
+									  CJS_REG_BP, // %[base]
+									CJS_OPRAND_TYPE_CONST | CJS_OPRAND_SIZE_INT, // [idx]
+									  ...cf_int(spos), // [idx]
+								  CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT | CJS_OPRAND_ITYPE_FLOAT, // %[src]
+									nr, // [src]
+							],
+							rr: nr
+						}
+					}
 				}
+				//console.log(v);
+				//return {
+				//	o: [
+				//		...v.o, 
+				//		CJS_OP_SVAR, v.rr, ...cf_string(s.name)
+				//	],
+				//	rr: -1
+				//}
 			} else if (s.type == "get_var") {
 				console.log("C", c);
 				let v = ct_resolv_var(s.name, c);
@@ -3727,7 +4060,7 @@ export class CJSInterpreter {
 				if (v.type == "argument") {
 					if (v.location == "stack") {
 						// also + 4 because this is relative to ebp, which points to where ebp is in the stack so we need to skip it
-						let spos = c.pstacksize - v.spos + 4;
+						let spos = cf_calc_pss(c) - v.spos + 4;
 						console.log(spos);
 						if (v.vtype == "int") {
 							return {
@@ -3736,6 +4069,55 @@ export class CJSInterpreter {
 									  CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, // %[dst]
 									    nr, // [dst]
 									  CJS_OPRAND_TYPE_MEM | CJS_OPRAND_SIZE_INT | CJS_OPRAND_HAS_OFFSET, // [idx](%[base])
+									    CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, // (%[base])
+									      CJS_REG_BP, // %[base]
+									    CJS_OPRAND_TYPE_CONST | CJS_OPRAND_SIZE_INT, // [idx]
+									      ...cf_int(spos) // [idx]
+								],
+								rr: nr
+							}
+						} else if (v.vtype == "float") {
+							return {
+								o: [
+									CJS_OP_MOV, // mov %[dst], [idx](%[base])
+									  CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT | CJS_OPRAND_ITYPE_FLOAT, // %[dst]
+									    nr, // [dst]
+									  CJS_OPRAND_TYPE_MEM | CJS_OPRAND_SIZE_INT | CJS_OPRAND_ITYPE_FLOAT | CJS_OPRAND_HAS_OFFSET, // [idx](%[base])
+									    CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, // (%[base])
+									      CJS_REG_BP, // %[base]
+									    CJS_OPRAND_TYPE_CONST | CJS_OPRAND_SIZE_INT, // [idx]
+									      ...cf_int(spos) // [idx]
+								],
+								rr: nr
+							}
+						}
+					}
+				} else if (v.type == "variable") {
+					if (v.location == "stack") {
+//						console.log(-v.spos + 12);
+						let spos = v.spos;
+						console.log(spos);
+						if (v.vtype == "int") {
+							return {
+								o: [
+									CJS_OP_MOV, // mov %[dst], [idx](%[base])
+									  CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, // %[dst]
+									    nr, // [dst]
+									  CJS_OPRAND_TYPE_MEM | CJS_OPRAND_SIZE_INT | CJS_OPRAND_HAS_OFFSET, // [idx](%[base])
+									    CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, // (%[base])
+									      CJS_REG_BP, // %[base]
+									    CJS_OPRAND_TYPE_CONST | CJS_OPRAND_SIZE_INT, // [idx]
+									      ...cf_int(spos) // [idx]
+								],
+								rr: nr
+							}
+						} else if (v.vtype == "float") {
+							return {
+								o: [
+									CJS_OP_MOV, // mov %[dst], [idx](%[base])
+									  CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT | CJS_OPRAND_ITYPE_FLOAT, // %[dst]
+									    nr, // [dst]
+									  CJS_OPRAND_TYPE_MEM | CJS_OPRAND_SIZE_INT | CJS_OPRAND_ITYPE_FLOAT | CJS_OPRAND_HAS_OFFSET, // [idx](%[base])
 									    CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, // (%[base])
 									      CJS_REG_BP, // %[base]
 									    CJS_OPRAND_TYPE_CONST | CJS_OPRAND_SIZE_INT, // [idx]
@@ -3829,7 +4211,7 @@ export class CJSInterpreter {
 					rr: a.rr,
 					rt: a.rt
 				};
-			} else if (s.type == "divide") {
+			} else if (s.type == "div_int") {
 				let a = cf(s.a, nr, c);
 				let b = cf(s.b, a.rr+1, c);
 				
@@ -3840,7 +4222,46 @@ export class CJSInterpreter {
 						CJS_OP_DIV, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, a.rr, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, b.rr
 					],
 					rr: a.rr,
+					rt: "int"
+				}
+			} else if (s.type == "div_float") {
+				let a = cf(s.a, nr, c);
+				let b = cf(s.b, a.rr+1, c);
+				
+				return {
+					o: [
+						...a.o, 
+						...b.o, 
+						CJS_OP_DIV, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT | CJS_OPRAND_ITYPE_FLOAT, a.rr, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT | CJS_OPRAND_ITYPE_FLOAT, b.rr
+					],
+					rr: a.rr,
 					rt: "float"
+				}
+			} else if (s.type == "power_int") {
+				let a = cf(s.a, nr, c);
+				let b = cf(s.b, a.rr+1, c);
+
+				return {
+					o: [
+						...a.o,
+						...b.o,
+						CJS_OP_PWR, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, a.rr, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, b.rr
+					],
+					rr: a.rr,
+					rt: a.rt
+				}
+			} else if (s.type == "power_float") {
+				let a = cf(s.a, nr, c);
+				let b = cf(s.b, a.rr+1, c);
+
+				return {
+					o: [
+						...a.o,
+						...b.o,
+						CJS_OP_PWR, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT | CJS_OPRAND_ITYPE_FLOAT, a.rr, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT | CJS_OPRAND_ITYPE_FLOAT, b.rr
+					],
+					rr: a.rr,
+					rt: a.rt
 				}
 			} else if (s.type == "mod_int") {
 				let a = cf(s.a, nr, c);
@@ -3987,8 +4408,15 @@ export class CJSInterpreter {
 					let cd = cf(s.args[i], nr + i, c);
 
 					args.push(cd.rt);
-					code.push(...cd.o,
-							  CJS_OP_PUSH, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, cd.rr);
+
+					if (s.args[i].otype == "int") {
+						code.push(...cd.o,
+								  CJS_OP_PUSH, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, cd.rr);
+					} else if (s.args[i].otype == "float") {
+						code.push(...cd.o,
+								  CJS_OP_PUSH, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT | CJS_OPRAND_ITYPE_FLOAT, cd.rr);
+					}
+					
 					alen += 4;
 				}
 
@@ -4024,7 +4452,7 @@ export class CJSInterpreter {
 						mname: fname 
 					},
 					CJS_OP_PUSH, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, CJS_REG_BP,
-					CJS_OP_MOV,  CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, CJS_REG_BP, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, CJS_REG_SP,
+					CJS_OP_MOV,  CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, CJS_REG_BP, CJS_OPRAND_TYPE_REG   | CJS_OPRAND_SIZE_INT, CJS_REG_SP,
 					...cf(s.code, nr, c).o,
 					{ type: "label", name: plb }
 				]};
@@ -4041,13 +4469,20 @@ export class CJSInterpreter {
 
 				return {o:[]};
 			} else if (s.type == "return") {
-				let v = s.expr?cf(s.expr, nr, c):null;
+				let v     = s.expr?cf(s.expr, nr, c):null;
+				let itype;
 
+				if (s.expr.otype == "int") {
+					itype = CJS_OPRAND_ITYPE_INT;
+				} else if (s.expr.otype == "float") {
+					itype = CJS_OPRAND_ITYPE_FLOAT;
+				}
+				
 				if (v) {
 					return {
 						o: [
 							...v.o,
-							CJS_OP_MOV, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, CJS_REG_AX, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, v.rr, 
+							CJS_OP_MOV, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT | itype, CJS_REG_AX, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT | itype, v.rr, 
 							CJS_OP_MOV, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, CJS_REG_SP, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, CJS_REG_BP,
 							CJS_OP_POP, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, CJS_REG_BP,
 							CJS_OP_RET
@@ -4062,6 +4497,67 @@ export class CJSInterpreter {
 						]
 					}
 				}
+			} else if (s.type == "int_conv_float") {
+				let v = cf(s.value, nr, c);
+				
+				return {
+					o: [
+						...v.o,
+						CJS_OP_ICONVF, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, v.rr
+					],
+					rr: v.rr
+				};
+			} else if (s.type == "while") {
+				let expr = cf(s.expr, nr, c);
+				let code = cf(s.code, expr.rr + 1, c);
+
+				let slb = `__W${nlb+1}_0`;
+				let elb = `__W${nlb++}_1`;
+
+				return {
+					o: [
+						{ type: "label", name: slb },
+						...expr.o,
+						CJS_OP_JF, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, expr.rr, { type: "labelref", name: elb },
+						...code.o,
+						CJS_OP_JMP, { type: "labelref", name: slb },
+						{ type: "label", name: elb }
+					]
+				}
+			} else if (s.type == "logical_and_int") {
+				let a = cf(s.a, nr, c);
+				let b = cf(s.b, a.rr + 1, c);
+
+				return {
+					o: [
+						...a.o,
+						...b.o,
+						CJS_OP_LGAND, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, a.rr, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, b.rr
+					],
+					rr: a.rr
+				};
+			} else if (s.type == "less_than_int") {
+				let a = cf(s.a, nr, c);
+				let b = cf(s.b, a.rr + 1, c);
+
+				return {
+					o: [
+						...a.o,
+						...b.o,
+						CJS_OP_LT, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, a.rr, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, b.rr
+					],
+					rr: a.rr
+				};
+			} else if (s.type == "logical_not_int") {
+				let a = cf(s.a, nr, c);
+				
+				return {
+					o: [
+						...a.o,
+						CJS_OP_LGNOT, CJS_OPRAND_TYPE_REG | CJS_OPRAND_SIZE_INT, a.rr,
+					],
+					rr: a.rr
+				};
 			} else {
 				console.log("CF-INV", s);
 				return {o:[CJS_OP_NOOP]};
@@ -4381,15 +4877,32 @@ export class CJSInterpreter {
 		let args = this.code.code[pos++];
 
 		if ((args & CJS_OPRAND_TYPE) == CJS_OPRAND_TYPE_REG) {
+			let itype = "";
+
+			if ((args & CJS_OPRAND_ITYPE) == CJS_OPRAND_ITYPE_INT) {
+				itype = "int";
+			} else if ((args & CJS_OPRAND_ITYPE) == CJS_OPRAND_ITYPE_FLOAT) {
+				itype = "float";
+			} else {
+				this.interupt(CJS_INT_INVALID_OP);
+			}
+			
 			let reg = this.code.code[pos++];
 			if (consume) this.registers[CJS_REG_IP] = pos;
 			return {
 				type:     "register",
+				itype:    itype,
 				register: reg
 			};
 		} else if ((args & CJS_OPRAND_TYPE) == CJS_OPRAND_TYPE_MEM) {
-			let base, offset;
+			let base, offset, itype;
 
+			if ((args & CJS_OPRAND_ITYPE) == CJS_OPRAND_ITYPE_INT) {
+				itype = "int";
+			} else if ((args & CJS_OPRAND_ITYPE) == CJS_OPRAND_ITYPE_FLOAT) {
+				itype = "float";
+			}
+			
 			let base_args = this.code.code[pos++];
 			if ((base_args & CJS_OPRAND_TYPE) == CJS_OPRAND_TYPE_REG) {
 				base = {
@@ -4427,7 +4940,8 @@ export class CJSInterpreter {
 			return {
 				type: "memory",
 				base: base,
-				offset: offset
+				offset: offset,
+				itype: itype
 			};
 		} else if ((args & CJS_OPRAND_TYPE) == CJS_OPRAND_TYPE_CONST) {
 			if ((args & CJS_OPRAND_SIZE) == CJS_OPRAND_SIZE_INT) {
@@ -4446,7 +4960,7 @@ export class CJSInterpreter {
 	}
 	
 	tick() {
-//		console.log("interpreter tick", this.registers);
+		//console.log("interpreter tick", this.registers);
 		if (this.code.tier == 0) {
 			console.log("tier up from source to baseline");
 			this.compile_baseline(this.code);
@@ -4591,14 +5105,33 @@ export class CJSInterpreter {
 				}
 			} else if (this.code.code[this.registers[CJS_REG_IP]] == CJS_OP_DIV) {
 				this.registers[CJS_REG_IP]++;
-				let a = this.code.code[this.registers[CJS_REG_IP]++];
-				let b = this.code.code[this.registers[CJS_REG_IP]++];
 
-				let av = this.registers[a];
-				let bv = this.registers[b];
-				let rv = this.exec_overload(this.world[0], OVERLOAD_OP, "operator/", [av, bv]);
-				
-				this.registers[a] = rv;
+				let a1 = this.oprand_decode(1);
+				let a2 = this.oprand_decode(1);
+
+				let value;
+				if (a2.type == "register") {
+					value = this.registers[a2.register];
+				} else if (a2.type == "const") {
+					value = a2.value;
+				} else if (a2.type == "memory") {
+					let addr = 0;
+
+					if (a2.base.type == "register") {
+						addr = this.registers[a2.base.register];
+					}
+
+					if (a2.offset.type == "const") {
+						addr += a2.offset.value;
+					}
+
+					value = this.memoryv.getInt32(addr);
+				}
+
+				if (a1.type == "register") {
+//					console.log(this.registers, a1, a2);
+					this.registers[a1.register] = this.registers[a1.register] / value;
+				}
 			} else if (this.code.code[this.registers[CJS_REG_IP]] == CJS_OP_MOD) {
 				this.registers[CJS_REG_IP]++;
 
@@ -4627,6 +5160,35 @@ export class CJSInterpreter {
 				if (a1.type == "register") {
 //					console.log(this.registers, a1, a2);
 					this.registers[a1.register] = this.registers[a1.register] % value;
+				}
+			} else if (this.code.code[this.registers[CJS_REG_IP]] == CJS_OP_PWR) {
+				this.registers[CJS_REG_IP]++;
+
+				let a1 = this.oprand_decode(1);
+				let a2 = this.oprand_decode(1);
+
+				let value;
+				if (a2.type == "register") {
+					value = this.registers[a2.register];
+				} else if (a2.type == "const") {
+					value = a2.value;
+				} else if (a2.type == "memory") {
+					let addr = 0;
+
+					if (a2.base.type == "register") {
+						addr = this.registers[a2.base.register];
+					}
+
+					if (a2.offset.type == "const") {
+						addr += a2.offset.value;
+					}
+
+					value = this.memoryv.getInt32(addr);
+				}
+
+				if (a1.type == "register") {
+//					console.log(this.registers, a1, a2);
+					this.registers[a1.register] = this.registers[a1.register] ** value;
 				}
 			} else if (this.code.code[this.registers[CJS_REG_IP]] == CJS_OP_LGOR) {
 				this.registers[CJS_REG_IP]++;
@@ -5000,16 +5562,18 @@ export class CJSInterpreter {
 			} else if (this.code.code[this.registers[CJS_REG_IP]] == CJS_OP_PUSH) {
 				this.registers[CJS_REG_IP]++;
 
-				let args = this.code.code[this.registers[CJS_REG_IP]++];
+				let inp = this.oprand_decode(1);
+	
+				if (inp.type == "register") {
+					this.registers[CJS_REG_SP] -= 4;
+					let value = this.registers[inp.register];
 
-				if ((args & CJS_OPRAND_TYPE) == CJS_OPRAND_TYPE_REG) {
-					if ((args & CJS_OPRAND_SIZE) == CJS_OPRAND_SIZE_INT) {
-						let v = this.registers[this.code.code[this.registers[CJS_REG_IP]++]];
-
-						this.registers[CJS_REG_SP] -= 4;
-						this.memoryv.setInt32(this.registers[CJS_REG_SP], v);
+					if (inp.itype == "int") {
+						this.memoryv.setInt32(this.registers[CJS_REG_SP], value);
+					} else if (inp.itype == "float") {
+						this.memoryv.setFloat32(this.registers[CJS_REG_SP], value);
 					}
-				}
+				} 
 			} else if (this.code.code[this.registers[CJS_REG_IP]] == CJS_OP_POP) {
 				this.registers[CJS_REG_IP]++;
 
@@ -5053,11 +5617,25 @@ export class CJSInterpreter {
 						addr += a2.offset.value;
 					}
 
-					value = this.memoryv.getInt32(addr);
+					if      (a2.itype == "int")   value = this.memoryv.getInt32(addr);
+					else if (a2.itype == "float") value = this.memoryv.getFloat32(addr);
 				}
 
 				if (a1.type == "register") {
 					this.registers[a1.register] = value;
+				} else if (a1.type == "memory") {
+					let addr = 0;
+
+					if (a1.base.type == "register") {
+						addr = this.registers[a1.base.register];
+					}
+
+					if (a1.offset.type == "const") {
+						addr += a1.offset.value;
+					}
+
+					if      (a1.itype == "int")   this.memoryv.setInt32(addr, value);
+					else if (a1.itype == "float") this.memoryv.setFloat32(addr, value);
 				}
 				//this.registers[r1] = this.registers[r2];
 			} else if (this.code.code[this.registers[CJS_REG_IP]] == CJS_OP_RET) {
@@ -5080,6 +5658,26 @@ export class CJSInterpreter {
 				}
 
 				this.hmtds[nm](this);
+			} else if (this.code.code[this.registers[CJS_REG_IP]] == CJS_OP_ICONVF) {
+				this.registers[CJS_REG_IP]++;
+
+				let a1 = this.oprand_decode(1);
+
+				if (a1.type == "register") {
+					this.registers[a1.register] = this.registers[a1.register];
+				} else if (a1.type == "memory") {
+					let addr = 0;
+
+					if (a1.base.type == "register") {
+						addr = this.registers[a1.base.register];
+					}
+
+					if (a1.offset.type == "const") {
+						addr += a1.offset.value;
+					}
+
+					this.memoryv.setFloat32(addr, this.memoryv.getInt32(addr));
+				}
 			} else if (this.code.code[this.registers[CJS_REG_IP]] == undefined) {
 				return 2;
 			} else {
