@@ -94,64 +94,69 @@
 			}
 		</style>
 	</head>
-	<body>
-		<main>
-			<article>
-				<h1>about me</h1>
-				<div>im xwashere, im a really bad programmer</div>
-				<div>i usually use C/C++ and javascript</div>
-			</article>
-			<article>
-				<h1>projects</h1>
-				<div class="project_cards">
-					<article class="project_card">
-						<h2>hatred</h2>
-						<!--<p>its fucking malware what am i supposed to say about this???</p>-->
-						<p>a thing. for educational purposes only.</p>
-						<ul>
-							<li>
-								<a href="https://github.com/xwashere/hatred" aria-label="github">github - hatred</a>
-							</li>
-						</ul>
-					</article>
-				</div>
-			</article>
-			<article>
-				<h1>dead projects</h1>
-				<div class="project_cards">
-					<article class="project_card">
-						<h2>ircreborn</h2>
-						<p>a really bad chat app written in c++. currently on hold until i can pull myself together in school</p>
-						<ul>
-							<li>
-								<a href="https://github.com/xwashere/ircreborn" aria-label="github">github - ircreborn</a>
-							</li>
-						</ul>
-					</article>
-					<article class="project_card">
-						<h2>calc</h2>
-						<p>its a calculator i made when i was bored in class</p>
-						<p>more of a programming language than a calculator to be honest</p>
-						<ul>
-							<li>
-								<a href="https//github.com/xwashere/xwashere.github.io" aria-label="github">github - x's thing</a>
-							</li>
-							<li>
-								<a href="./calc/">try it out i guess</a>
-							</li>
-						</ul>
-					</article>
-				</div>
-			</article>
-			<article>
-				<h1>random links</h1>
-				<p><a href="https://github.com/xwashere">my github</a></p>
-			</article>
-		</main>
-		<!-- i have no idea if this will do anything, i just dont know how screen readers will respond to the (c) -->
-		<footer aria-label="copyright xwashere 2021-2022">
-			<a aria-hidden="true">copyright (c) xwashere 2021-2022</a>
-		</footer>
+	<body>		
+		<section class="bg">
+			<canvas id="bg_viewport"></canvas>
+		</section>
+		<div class="not_bg">
+			<main>
+				<article>
+					<h1>about me</h1>
+					<div>im xwashere, im a really bad programmer</div>
+					<div>i usually use C/C++ and javascript</div>
+				</article>
+				<article>
+					<h1>projects</h1>
+					<div class="project_cards">
+						<article class="project_card">
+							<h2>hatred</h2>
+							<!--<p>its fucking malware what am i supposed to say about this???</p>-->
+							<p>a thing. for educational purposes only.</p>
+							<ul>
+								<li>
+									<a href="https://github.com/xwashere/hatred" aria-label="github">github - hatred</a>
+								</li>
+							</ul>
+						</article>
+					</div>
+				</article>
+				<article>
+					<h1>dead projects</h1>
+					<div class="project_cards">
+						<article class="project_card">
+							<h2>ircreborn</h2>
+							<p>a really bad chat app written in c++. currently on hold until i can pull myself together in school</p>
+							<ul>
+								<li>
+									<a href="https://github.com/xwashere/ircreborn" aria-label="github">github - ircreborn</a>
+								</li>
+							</ul>
+						</article>
+						<article class="project_card">
+							<h2>calc</h2>
+							<p>its a calculator i made when i was bored in class</p>
+							<p>more of a programming language than a calculator to be honest</p>
+							<ul>
+								<li>
+									<a href="https//github.com/xwashere/xwashere.github.io" aria-label="github">github - x's thing</a>
+								</li>
+								<li>
+									<a href="./calc/">try it out i guess</a>
+								</li>
+							</ul>
+						</article>
+					</div>
+				</article>
+				<article>
+					<h1>random links</h1>
+					<p><a href="https://github.com/xwashere">my github</a></p>
+				</article>
+			</main>
+			<!-- i have no idea if this will do anything, i just dont know how screen readers will respond to the (c) -->
+			<footer aria-label="copyright xwashere 2021-2022">
+				<a aria-hidden="true">copyright (c) xwashere 2021-2022</a>
+			</footer>
+		</div>
 		<div style="height: 100%"></div>
 		<script src="./index.js"></script>
 	</body>
