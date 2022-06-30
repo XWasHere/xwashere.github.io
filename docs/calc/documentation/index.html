@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>cjs documentation</title>
+	</head>
+	<body>
+		<h1>language</h1>
+		<h2>functions</h2>
+		<p>currently there are 2 types of function things in cjs, a host declaration and a regular function</p>
+		<h3>host declarations</h3>
+		<p>a host declaration lets you tell the compiler how to call a host function, which lets you do things like write to the output</p>
+		<p>they look like this <pre>host {{type}} {{name}}({{arguments}});</pre></p>
+		<p>for example you could do</p>
+		<pre>host int notarealhostfunction(int a, int b);</pre>
+		<p>once youve declared them you can call them normally</p>
+		<h4>list of host functions</h4>
+		<h5>_private_put</h5>
+		<p>writes a number to stdout. will be replaced with something better.</p>
+		<pre>int _private_put(int value);</pre>
+		<h3>regular functions</h3>
+		<p>functions can be declared similarly to other languages, you put the type then name and arguments then a block</p>
+		<p>example:</p>
+		<pre>
+int add(int a, int b) {
+	return a + b;
+}
+		</pre>
+		<p>then you can call them</p>
+		<h2>variables</h2>
+		<p>a variable is declared like this</p>
+		<pre>{{type}} {{name}} [[= {{initializer}}]];</pre>
+		<p>some examples:</p>
+		<pre>int thing;</pre>
+		<pre>int hi = 1;</pre>
+		<h2>operators</h2>
+		<p>operators are:</p>
+		<pre>a + b</pre>
+		<pre>a - b</pre>
+		<pre>a / b</pre>
+		<pre>a * b</pre>
+		<pre>a % b</pre>
+		<pre>a ** b</pre>
+		<pre>a && b</pre>
+		<pre>a || b</pre>
+		<pre>a == b</pre>
+		<pre>a != b</pre>
+		<pre>a < b</pre>
+		<pre>a > b</pre>
+		<pre>a <= b</pre>
+		<pre>a >= b</pre>
+	</body>
+</html>

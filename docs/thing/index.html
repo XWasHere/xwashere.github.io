@@ -13,36 +13,18 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -->
 <!DOCTYPE html>
-<html lang="en-US">
+<html>
 	<head>
-		<title>calc.js</title>
-		<link rel="stylesheet" href="./calc.css"></link>
+		<style>
+			html, body, canvas {
+				height: 100%;
+				width:  100%;
+				margin: 0px;
+			}
+		</style>
 	</head>
 	<body>
-		<xu-menu type="toolbar">
-			<xu-submenu name="config">
-				<xu-menuitem type="toggle" id="cfg_auto_exec">auto exec</xu-menuitem>
-			</xu-submenu>
-			<xu-menuitem type="button" id="exec_button">exec</xu-menuitem>
-		</xu-menu>
-		<main>
-			<section class="input panel">
-				<header>
-					<span>source</span>
-				</header>
-				<div>
-					<cjs-textarea class="src" id="src" aria-label="source"></cjs-textarea>
-				</div>
-			</section>
-			<section class="output panel">
-				<header>
-					<span>stdout</span>
-				</header>
-				<div>
-					<div class="stdout" id="output"></div>
-				</div>
-			</section>
-		</main>
+		<canvas id="viewport">how does a browser not support the canvas element in 2022. unless you're using links theres no excuse to be seeing this.</canvas>
 		<script src="./index.js"></script>
 	</body>
 </html>

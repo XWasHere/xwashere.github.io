@@ -1,0 +1,165 @@
+/*
+    X's thing
+    Copyright (C) 2022 XWasHere 
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+/*:host>div {
+	--MONO_WIDTH:  ${monospace_size.w}px;
+	--MONO_HEIGHT: ${monospace_size.h}px;
+}*/
+
+@keyframes blinky_thing {
+	0% {
+		background-color: #b0b0b0;
+	}
+	50% {
+		background-color: #00000000;
+	}
+}
+
+.root {
+	background-color: #000000;
+	height: 100%;
+	width: 100%;
+}
+
+.main {
+	background-color #000000;
+	height: 100%;
+	width: 100%;
+	font-family: monospace;
+}
+
+.input {
+	background-color: #1f1f1f;
+	height: 100%;
+	width: 100%;
+	overflow: auto;
+	display: flex;
+}
+
+.input ::selection {
+	display: none
+}
+
+.linenos {
+	left: 0px;
+	position: sticky;
+	background-color: #000000;
+	min-height: 100%;
+	height: max-content;
+	width: 40px;
+	color: #a0a0a0;
+	border-right-width: 1px;
+	border-right-color: #7f7f7f;
+	border-right-style: solid;
+	flex-grow: 0;
+	flex-shrink: 0;
+}
+
+.content {
+	flex-grow: 1;
+	min-height: 100%;
+	height: max-content;
+	padding-left: 2px;
+	caret-color: transparent;
+	background-color: #1f1f1f;
+}
+
+.content>div>div>span {
+	white-space: pre;
+	height: var(--MONO_HEIGHT);
+}
+
+.caret_container {
+	height: 0px;
+	width: 0px;
+	overflow: visible;
+}
+
+.caret_container>div {
+	width: 1px;
+	position: relative;
+	animation-name: blinky_thing;
+	animation-duration: 1s;
+	animation-iteration-count: infinite;
+	animation-timing-function: step-end;
+}
+
+.highlight_container {
+	height: 0px;
+	width: 0px;
+	overflow: visible;
+}
+
+.highlight_container>div {
+	height: 0px;
+	width: 0px;
+	overflow: visible;
+	background-color: #1f1f1f;
+}
+
+.highlight_container>div>div {
+	position: relative;
+	background-color: #ffffff40;
+}
+
+::-webkit-scrollbar {
+	background-color: #202020;
+}
+
+::-webkit-scrollbar {
+	background-color: #202020;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: #7f7f7f;
+}
+
+::-webkit-scrollbar-track:horizontal {
+	border-top-style: solid;
+	border-top-width: 1px;
+}
+
+::-webkit-scrollbar-track:vertical {
+	border-left-style: solid;
+	border-left-width: 1px;
+}
+
+::-webkit-scrollbar-corner {
+	background-color: #404040;
+}
+
+.token_generic {
+	color: #a0a0a0;
+}
+
+.token_number {
+	color: #c4ffc5;
+}
+
+.token_identifier {
+	color: #bff3ff;
+}
+
+.token_function_identifier {
+	color: #faffbb;
+}
+
+.token_class_identifier {
+	color: #50dda2;
+}
+
+.token_keyword {
+	color: #c194fb;
+}

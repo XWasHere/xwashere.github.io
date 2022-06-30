@@ -21,8 +21,37 @@
 	<head>
 		<title>X's thing</title>
 		<style>
-            @import "./use_inter.css"
-                
+			@import "https://rsms.me/inter/inter.css";
+			
+			body {
+				font-family: Inter,sans-serif;
+				font-size: 15px;
+				background-color: #101010;
+				color: #afafaf;
+			}
+
+			main {
+				margin: 32px;
+				padding: 4px;
+				background-color: #202020;
+				text-align: center;
+				border-color: #404040;
+				border-width: 4px;
+				border-style: solid;
+			}
+
+			h1 {
+				margin: 4px;
+			}
+
+			::marker {
+				content: "";
+			}
+
+			ul {
+				padding-left: 0px;
+			}
+			
 			.project_cards {
 				display: flex;
 				flex-wrap: wrap;
@@ -37,6 +66,31 @@
 
 			.project_card>h2 {
 				margin: 0px;
+			}
+
+			html, body, .not_bg, .bg, .bg canvas {
+				margin: 0px;
+				height: 100%;
+				width: 100%;
+			}
+
+			.bg canvas {
+				border:  0px;
+			}
+
+			.bg {
+				position: fixed;
+			}
+			
+			.not_bg {
+				position: absolute;
+				top: 0px;
+			}
+			
+			footer {
+				position: relative;
+				top: -30px;
+				text-align: center;
 			}
 		</style>
 	</head>
