@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                overflow: hidden;
+            }
+
+            main {
+                display: flex;
+                flex-direction: column;
+
+                height: 100vh;
+                width:  100vw;
+            }
+
+            .vpc {
+                flex-grow: 1;
+                overflow: hidden;
+            }
+
+            #menu {
+                padding: 0px;
+
+                flex-grow: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <div id="menu">
+                <button id="startbtn">start</button>
+            </div>
+            <div class="vpc">
+                <canvas id="display"></canvas>
+            </div>
+        </main>
+        <script>
+          const display  = document.getElementById("display");
+          const startbtn = document.getElementById("startbtn");
+          const dc       = display.getContext("2d");
+
+          let fbuf = new Uint8Array(32768);
+
+          let actx;
+          let anal; // uohhh
+          let stream;
+
+          let vh = display.height;
+          let vw = display.width;
+          let spos = 0;
+
+          let running = false;
+
+          function rgb(r, g, b) {
+              return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).substring(1)}`;
+          }
+
+          function step() {
+              anal.getByteFrequencyData(fbuf);
+              dc.putImageData(dc.getImageData(1, 0, vw - 1, vh), 0, 0);
+              let s = vh / anal.ffiSize;
+              for (let i = 0; i < anal.ffiSize; i++) {
+                  dc.strokeStyle = rgb(fbuf[i], fbuf[i], fbuf[i])
+                  dc.beginPath();
+                  dc.moveTo(vw, vh - (i) * s);
+                  dc.lineTo(vw, vh - (i + 1) * s);
+                  dc.stroke()
+              }
+          }
+
+          startbtn.addEventListener("click", () => {
+              if (!actx) {
+                  actx = new AudioContext();
+                  anal = actx.createAnalyser();
+                  anal.ffiSize = 256;
+              }
+
+              if (!stream) {
+                  navigator.mediaDevices.getUserMedia({ audio: true }).then((s) => {
+                      stream = actx.createMediaStreamSource(s);
+                      stream.connect(anal);
+                  });
+              }
+
+              setInterval(step, 10);
+          })
+
+          new ResizeObserver(() => {
+              vw = display.width  = display.parentElement.clientWidth;
+              vh = display.height = display.parentElement.clientHeight;
+          }).observe(display.parentElement);
+        </script>
+    </body>
+</html>
