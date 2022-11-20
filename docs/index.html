@@ -1,138 +1,52 @@
-<!--
-    X's thing
-
-    Copyright (C) 2022 XWasHere 
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
--->
 <!DOCTYPE html>
 <html>
-	<head>
-		<title>X's thing</title>
-		<style>
-			@import "https://rsms.me/inter/inter.css";
-			
-			body {
-				font-family: Inter,sans-serif;
-				font-size: 15px;
-				background-color: #101010;
-				color: #afafaf;
-			}
-
-			main {
-				margin: 32px;
-				padding: 4px;
-				background-color: #202020;
-				text-align: center;
-				border-color: #404040;
-				border-width: 4px;
-				border-style: solid;
-			}
-
-			h1 {
-				margin: 4px;
-			}
-
-			::marker {
-				content: "";
-			}
-
-			ul {
-				padding-left: 0px;
-			}
-			
-			.project_cards {
-				display: flex;
-				flex-wrap: wrap;
-			}
-
-			.project_card {
-				border-color: #000000;
-				border-style: solid;
-				border-width: 1px;
-				padding: 5px;
-			}
-
-			.project_card>h2 {
-				margin: 0px;
-			}
-
-			html, body, .not_bg, .bg, .bg canvas {
-				margin: 0px;
-				height: 100%;
-				width: 100%;
-			}
-
-			.bg canvas {
-				border:  0px;
-			}
-
-			.bg {
-				position: fixed;
-			}
-			
-			.not_bg {
-				position: absolute;
-				top: 0px;
-			}
-			
-			footer {
-				position: relative;
-				top: -30px;
-				text-align: center;
-			}
-		</style>
-	</head>
-	<body>
-		<main>
-			<article>
-				<h1>about me</h1>
-				<div>im xwashere, im a really bad programmer</div>
-				<div>i usually use C/C++ and javascript</div>
-			</article>
-			<article>
-				<h1>projects</h1>
-				<div class="project_cards">
-
-				</div>
-			</article>
-			<article>
-				<h1>dead projects</h1>
-				<div class="project_cards">
-					<article class="project_card">
-						<h2>calc</h2>
-						<p>its a calculator i made when i was bored in class</p>
-						<p>more of a programming language than a calculator to be honest</p>
-						<ul>
-							<li>
-								<a href="https//github.com/xwashere/xwashere.github.io" aria-label="github">github - x's thing</a>
-							</li>
-							<li>
-								<a href="./calc/">try it out i guess</a>
-							</li>
-						</ul>
-					</article>
-				</div>
-			</article>
-			<article>
-				<h1>random links</h1>
-				<p><a href="https://github.com/xwashere">my github</a></p>
-			</article>
-		</main>
-		<!-- i have no idea if this will do anything, i just dont know how screen readers will respond to the (c) -->
-		<footer aria-label="copyright xwashere 2021-2022">
-			<a aria-hidden="true">copyright (c) xwashere 2021-2022</a>
-		</footer>
-	</body>
+    <head>
+        <title>x's thing</title>
+        <meta charset="UTF-8"/>
+        <meta property="og:title" content="x's thing"/>
+        <meta property="og:description" content="hewo"/>
+        <link rel="stylesheet" href="index.css">
+    </head>
+    <body>
+        <div class="root">
+            <main>
+                <h1>x's thing</h1>
+                <section>
+                    <h2>about me</h2>
+                    hiiiii~ im x, im a genderfluid bi weirdo who likes to program random junk. i dont currently have any projects to show, but hopefully thatll change soon :D<br>
+                    feel free to add me on matrix ill try to respond whenever i remember to check
+                </section>
+                <section>
+                    <h2>languages i use</h2>
+                    <ul> <!-- needs icons, but im too lazy, this will have to do for now -->
+                        <li>c/c++</li>
+                        <li>typescript</li>
+                        <li>java</li>
+                    </ul>
+                </section>
+            </main>
+            <div class="root-sidebar">
+                <div>
+                    <h2>some links</h2>
+                    <ul class="contact-list">
+                        <li>
+                            <svg style="width:24px;height:24px" viewBox="0 0 24 24">
+                                <path fill="currentColor" d="M12,2A10,10 0 0,0 2,12C2,16.42 4.87,20.17 8.84,21.5C9.34,21.58 9.5,21.27 9.5,21C9.5,20.77 9.5,20.14 9.5,19.31C6.73,19.91 6.14,17.97 6.14,17.97C5.68,16.81 5.03,16.5 5.03,16.5C4.12,15.88 5.1,15.9 5.1,15.9C6.1,15.97 6.63,16.93 6.63,16.93C7.5,18.45 8.97,18 9.54,17.76C9.63,17.11 9.89,16.67 10.17,16.42C7.95,16.17 5.62,15.31 5.62,11.5C5.62,10.39 6,9.5 6.65,8.79C6.55,8.54 6.2,7.5 6.75,6.15C6.75,6.15 7.59,5.88 9.5,7.17C10.29,6.95 11.15,6.84 12,6.84C12.85,6.84 13.71,6.95 14.5,7.17C16.41,5.88 17.25,6.15 17.25,6.15C17.8,7.5 17.45,8.54 17.35,8.79C18,9.5 18.38,10.39 18.38,11.5C18.38,15.32 16.04,16.16 13.81,16.41C14.17,16.72 14.5,17.33 14.5,18.26C14.5,19.6 14.5,20.68 14.5,21C14.5,21.27 14.66,21.59 15.17,21.5C19.14,20.16 22,16.42 22,12A10,10 0 0,0 12,2Z" />
+                            </svg>
+                            <a href="https://github.com/xwashere">xwashere</a>
+                        </li>
+                        <li>
+                            <svg style="width:24px;height:24px" viewBox="0 0 24 24">
+                                <path fill="currentColor" d="M2,2H6V4H4V20H6V22H2V2M20,4H18V2H22V22H18V20H20V4M9,5H10V10H11V11H8V10H9V6L8,6.5V5.5L9,5M15,13H16V18H17V19H14V18H15V14L14,14.5V13.5L15,13M9,13C10.1,13 11,14.34 11,16C11,17.66 10.1,19 9,19C7.9,19 7,17.66 7,16C7,14.34 7.9,13 9,13M9,14C8.45,14 8,14.9 8,16C8,17.1 8.45,18 9,18C9.55,18 10,17.1 10,16C10,14.9 9.55,14 9,14M15,5C16.1,5 17,6.34 17,8C17,9.66 16.1,11 15,11C13.9,11 13,9.66 13,8C13,6.34 13.9,5 15,5M15,6C14.45,6 14,6.9 14,8C14,9.1 14.45,10 15,10C15.55,10 16,9.1 16,8C16,6.9 15.55,6 15,6Z" />
+                            </svg>
+                            <a href="https://matrix.to/#/@xwashere:matrix.org">@xwashere:matrix.org</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="copyright">
+            <span>copyright (c) xwashere 2022-2023 all rights reserved</span>
+        </div>
+    </body>
 </html>
