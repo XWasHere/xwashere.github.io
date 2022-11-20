@@ -1,10 +1,63 @@
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400&display=swap');
 
+@media only screen {
+    @media (max-width: 600px) {
+        .top-spacer, .side-spacer {
+            display: none;
+        }
+
+        .root {
+            flex-direction: column;
+        }
+
+        .root-sidebar {
+            margin-left: 0 !important;
+            padding: 0 var(--mblk-padding) 10px var(--mblk-padding) !important;
+        }
+    }
+
+    /* 
+        why would somebody zoom in this much? 
+        i dont know, but i may as well have it just in case
+    */
+    @media (max-width: 250px) {
+        .linksec>ul>li>a>span {
+            display: none;
+        }
+
+        .linksec>ul>li>a>svg {
+            padding: 0 !important;
+
+            width:  48px !important;
+            height: 48px !important;
+        }
+
+        .linksec>ul>li, .linksec>ul>li>a {
+            display: contents !important;
+        }
+    }
+
+    @media (prefers-color-scheme: dark) {
+        html {
+            --light-text:     #8f8f8f;
+            --default-text:   #d0d0d0;
+            --default-bg:     #101010;
+            --default-border: #202020;
+        }
+    }
+
+    @media (prefers-color-scheme: light) {
+        html {
+            --light-text:     #9b9b9b;
+            --default-text:   #c5c5c5;
+            --default-bg:     #252525;
+            --default-border: #303030;
+        }
+    }
+}
+
 html {
-    --light-text:     #9b9b9b;
-    --default-text:   #c5c5c5;
-    --default-bg:     #252525;
-    --default-border: #303030;
+    --mblk-padding: 20px;
 
     background-color: var(--default-bg);
 }
@@ -15,23 +68,38 @@ html {
 }
 
 .root {
-    position: absolute;
-    display:  flex;
-    top:      10px;
-    bottom:   24px;
-    margin:   10px 25% 0 25%;
+    display: flex;
+}
+
+body {
+    margin: 0;
+
+    min-height: 100vh;
+
+    display:        flex;
+    flex-direction: column;
+}
+
+.spacer, .top-spacer, .side-spacer {
+    flex-grow: 1;
+}
+
+.top-spacer {
+    max-height: 20px;
+}
+
+.side-spacer {
+    width: 20px;
 }
 
 .copyright {
-    position:   absolute;
-    bottom:     5px;
-    left:       0px;
-    right:      0px;
     text-align: center;
     font-size:  12px;
 }
+
 main {
-    padding: 20px;
+    flex-grow: 1;
+    padding: var(--mblk-padding);
     border: var(--default-border) solid 1px;
 }
 
@@ -63,23 +131,29 @@ main h2 {
     color: var(--light-text);
 }
 
-.contact-list {
+.linksec>ul {
     margin:       0;
     padding-left: 0px;
 }
 
-.contact-list>li {
+.linksec>ul>li>a {
     display: flex;
 }
 
-.contact-list>li>svg {
+.linksec>ul>li>a>svg {
     padding-right: 4px;
+
+    width:  24px;
+    height: 24px;
+
+    /* for some reason the second svg (and only the second one) has flex-shrink on it..? im really confused */
+    flex-shrink: 0;
 }
 
-.contact-list a {
+.linksec>ul>li>a>span {
     font-size: 16px;
 }
 
-.contact-list ::marker {
+.linksec>ul>li::marker {
     content: none;
 }
