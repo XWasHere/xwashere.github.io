@@ -12,20 +12,32 @@ concurrency:
   group: "pages"
   cancel-in-progress: true
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: setup node
+        uses: actions/setup-node@v3
+        with: 
+          node-version: "16"
+      - name: setup pages
+        uses: actions/configure-pages@v2
+      - name: install deps
+        run: npm install -g sass
+      - name: compile scss
+        run: sass docs/:docs/
+      - name: upload
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: './docs'
   deploy:
     environment:
       name: github-pages
       url:  ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    needs: build
     steps:
-      - name: checkout
-        uses: actions/checkout@v3
-      - name: setup pages
-        uses: actions/configure-pages@v2
-      - name: upload
-        uses: actions/upload-pages-artifact@v1
-        with:
-          path: '.'
       - name: deploy
         id: deployment
         uses: actions/deploy-pages@v1
