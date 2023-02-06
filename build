@@ -1,0 +1,5 @@
+#!/usr/bin/sh
+# GEE THANKS CLOUDFLARE
+
+npm install -g sass;
+sass docs/:docs/;
