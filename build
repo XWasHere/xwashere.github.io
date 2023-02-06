@@ -2,4 +2,4 @@
 # GEE THANKS CLOUDFLARE
 
 npm install -g sass;
-sass docs/:docs/;
+sass docs/:public/;
