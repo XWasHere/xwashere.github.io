@@ -50,4 +50,4 @@ jobs:
         uses: cloudflare/wrangler-action@2.0.0
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
-          command: pages publish docs --project-name=${{ secrets.CF_PROJ_NAME }}
+          command: pages publish deploy --project-name=${{ secrets.CF_PROJ_NAME }}
