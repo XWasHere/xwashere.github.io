@@ -31,7 +31,7 @@ jobs:
           sass docs/:deploy/;
           pushd docs;
           find . -type d -exec mkdir -p ../deploy/{} \; ;
-          find . ( -name '*.svg' -or -name '*.html' -or -name '*.js' ) -exec cp {} ../deploy/{} \; ;
+          find . \( -name '*.svg' -or -name '*.html' -or -name '*.js' \) -exec cp {} ../deploy/{} \; ;
           popd;
           echo "::endgroup::";
           
