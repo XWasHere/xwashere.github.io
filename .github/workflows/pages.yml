@@ -26,4 +26,5 @@ jobs:
         uses: cloudflare/wrangler-action@2.0.0
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
+          workingDirectory: 'docs' 
           command: pages publish --project-name=${{ secrets.CF_PROJ_NAME }}
