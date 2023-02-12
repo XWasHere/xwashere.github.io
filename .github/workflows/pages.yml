@@ -4,20 +4,44 @@ on:
     branches:
       - master
   workflow_dispatch:
+  repository_dispatch:
+    types: [pagesbuild]
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
         uses: actions/checkout@v3
+      - name: checkout theme
+        uses: actions/checkout@v3
+        with:
+          repository: 'xwashere/sane-discord'
+          path:       'sane-discord'
       - name: setup node
         uses: actions/setup-node@v3
         with: 
           node-version: "16"
       - name: install deps
         run: npm install -g sass
-      - name: compile scss
-        run: sass docs/:docs/
+      - name: compile
+        run: |
+          mkdir -p deploy/theme;
+          
+          echo "::group::compile website";
+          sass docs/:deploy/;
+          pushd docs;
+          find . -type d -exec mkdir -p ../deploy/{} \; ;
+          find . ( -name '*.svg' -or -name '*.html' -or -name '*.js' ) -exec cp {} ../deploy/{} \; ;
+          popd;
+          echo "::endgroup::";
+          
+          echo "::group::compile theme";
+          sass sane-discord/src/main.scss > deploy/theme/sane-discord.css;
+          pushd sane-discord/src;
+          find . -type d -exec mkdir -p ../../deploy/theme/{} \; ;
+          find . -name '*.svg' -exec cp {} ../../deploy/theme/{} \; ;
+          popd;
+          echo "::endgroup::";
       - name: upload
         uses: actions/upload-pages-artifact@v1
         with:
