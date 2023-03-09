@@ -36,7 +36,9 @@ jobs:
           echo "::endgroup::";
           
           echo "::group::compile theme";
-          sass sane-discord/src/main.scss > deploy/theme/sane-discord.css;
+          sass sane-discord/src/main.scss        > deploy/theme/sane-discord.css;
+          sass sane-discord/src/sd-obsidian.scss > deploy/theme/sane-discord-obsidian.css;
+          sass sane-discord/src/sd-novela.scss   > deploy/theme/sane-discord-novela.css;
           pushd sane-discord/src;
           find . -type d -exec mkdir -p ../../deploy/theme/{} \; ;
           find . -name '*.svg' -exec cp {} ../../deploy/theme/{} \; ;
